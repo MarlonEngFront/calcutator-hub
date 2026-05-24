@@ -1,0 +1,26 @@
+# Next.js
+.next/
+out/
+
+# Node
+node_modules/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+tsconfig.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Vercel
+.vercel/
