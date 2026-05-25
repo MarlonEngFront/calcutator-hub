@@ -22,9 +22,6 @@
         "./*"
       ]
     },
-    "types": [
-      "./node_modules/vitest/globals"
-    ],
     "allowJs": true,
     "incremental": true,
     "isolatedModules": true,
