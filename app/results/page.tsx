@@ -15,6 +15,35 @@ const CALC_META: Record<string, { label: string; color: string; url: string }> =
   'apacrs-toric':       { label: 'APACRS Toric',        color: 'from-cyan-600 to-cyan-800',    url: 'calc.apacrs.org' },
 }
 
+// ── Multi-formula table (BRASCRS calcs) ───────────────────────────────────────
+interface MultiFormulaRow { formula: string; elp: number; iolPower: number }
+
+function MultiFormulaTable({ rows }: { rows: MultiFormulaRow[] }) {
+  return (
+    <div className="mt-3 pt-3 border-t border-inherit">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Resultados por Fórmula</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-gray-400 border-b border-gray-100">
+            <th className="text-left py-1 font-semibold">Fórmula</th>
+            <th className="text-right py-1 font-semibold">ELP</th>
+            <th className="text-right py-1 font-semibold">LIO (D)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.formula} className="border-b border-gray-50 last:border-0">
+              <td className="py-1.5 font-medium text-gray-700">{row.formula}</td>
+              <td className="py-1.5 text-right font-mono text-gray-500">{row.elp.toFixed(2)}</td>
+              <td className="py-1.5 text-right font-mono font-bold text-gray-900">{row.iolPower.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ── Per-eye result card ────────────────────────────────────────────────────────
 interface EyeResultProps {
   eye: 'OD' | 'OE'
@@ -62,7 +91,15 @@ function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
 
       {/* Main metrics */}
       <div className="p-4 space-y-3">
-        {result.iolPower !== undefined && (
+        {/* Multi-formula results (BRASCRS calcs) */}
+        {Array.isArray((result.raw as Record<string, unknown>)?.multiFormulaResults) && (
+          <MultiFormulaTable
+            rows={(result.raw as Record<string, unknown>).multiFormulaResults as MultiFormulaRow[]}
+          />
+        )}
+
+        {/* Single IOL power — shown only when no multi-formula table */}
+        {result.iolPower !== undefined && !Array.isArray((result.raw as Record<string, unknown>)?.multiFormulaResults) && (
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">Potência IOL</span>
             <span className="font-mono font-bold text-xl text-gray-900">

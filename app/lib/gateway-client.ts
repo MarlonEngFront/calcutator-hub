@@ -33,6 +33,8 @@ export type GatewayEye = {
     preLasikRef?: number
     postLasikRef?: number
     lensFactor?: number
+    /** K pré-LASIK (D) — método Double-K de Aramberri. */
+    kPreLasik?: number
   }
   calculatorPreferences: {
     seIOLPower?: number
@@ -50,6 +52,10 @@ export type GatewayLens = {
   toric_available: boolean
   code?: string
   classification?: string
+  /** Constantes Haigis — usadas por calculadoras multi-fórmula (BRASCRS). */
+  haigisA0?: number
+  haigisA1?: number
+  haigisA2?: number
 }
 
 export type GatewayRequest = {

@@ -9,6 +9,12 @@ export interface CalcLens {
   label: string       // exact label shown in the calculator dropdown
   family: string      // IOL family name
   manufacturer: string
+  /** Constante A (SRK/T, Holladay, Hoffer Q) — obrigatória para calcs BRASCRS */
+  aConstant?: number
+  /** Constantes Haigis — opcional; se omitido, Haigis usa a0=a1=a2=0 */
+  haigisA0?: number
+  haigisA1?: number
+  haigisA2?: number
 }
 
 // ── TECNIS Toric Calculator (tecnistoriccalc.com) ─────────────────────────────
@@ -73,10 +79,95 @@ export const APACRS_LENS_CATALOG: CalcLens[] = [
   { code: 'Ophtec 565',     label: 'Ophtec 565',            family: '565',     manufacturer: 'Ophtec' },
 ]
 
+// ── BRASCRS Calculadoras (Multifórmula + Double K) ────────────────────────────
+// Constantes A e Haigis — fonte: ULIB / catálogos fabricantes
+// A-constant → ctea (SRK/T, Holladay 1, Hoffer Q)
+// a0/a1/a2   → Haigis formula
+export const BRASCRS_LENS_CATALOG: CalcLens[] = [
+  // ─ Alcon ─
+  {
+    code: 'Alcon SN60WF', label: 'Alcon SN60WF (Acrysof IQ)',
+    family: 'SN60WF', manufacturer: 'Alcon',
+    aConstant: 119.0, haigisA0: -1.284, haigisA1: 0.236, haigisA2: 0.217,
+  },
+  {
+    code: 'Alcon SA60AT', label: 'Alcon SA60AT (Acrysof)',
+    family: 'SA60AT', manufacturer: 'Alcon',
+    aConstant: 118.7, haigisA0: -1.140, haigisA1: 0.248, haigisA2: 0.259,
+  },
+  {
+    code: 'Alcon SND1T', label: 'Alcon SND1T (PanOptix)',
+    family: 'SND1T', manufacturer: 'Alcon',
+    aConstant: 119.1, haigisA0: -1.198, haigisA1: 0.231, haigisA2: 0.228,
+  },
+  {
+    code: 'Alcon DFT015', label: 'Alcon DFT015 (Vivity)',
+    family: 'DFT015', manufacturer: 'Alcon',
+    aConstant: 119.3, haigisA0: -1.258, haigisA1: 0.226, haigisA2: 0.219,
+  },
+  // ─ J&J Vision ─
+  {
+    code: 'J&J ZCB00', label: 'J&J ZCB00 (TECNIS 1-Piece)',
+    family: 'ZCB00', manufacturer: 'J&J Vision',
+    aConstant: 119.1, haigisA0: -1.100, haigisA1: 0.240, haigisA2: 0.213,
+  },
+  {
+    code: 'J&J ZXR00', label: 'J&J ZXR00 (Symfony)',
+    family: 'ZXR00', manufacturer: 'J&J Vision',
+    aConstant: 119.1, haigisA0: -1.073, haigisA1: 0.226, haigisA2: 0.216,
+  },
+  {
+    code: 'J&J ZLB00', label: 'J&J ZLB00 (Synergy)',
+    family: 'ZLB00', manufacturer: 'J&J Vision',
+    aConstant: 119.2, haigisA0: -1.160, haigisA1: 0.235, haigisA2: 0.225,
+  },
+  // ─ Bausch & Lomb ─
+  {
+    code: 'B&L LI61AO', label: 'Bausch & Lomb LI61AO',
+    family: 'LI61AO', manufacturer: 'Bausch & Lomb',
+    aConstant: 118.0, haigisA0: -0.956, haigisA1: 0.245, haigisA2: 0.174,
+  },
+  {
+    code: 'B&L MX60', label: 'Bausch & Lomb MX60 (enVista)',
+    family: 'MX60', manufacturer: 'Bausch & Lomb',
+    aConstant: 118.5, haigisA0: -1.350, haigisA1: 0.277, haigisA2: 0.190,
+  },
+  // ─ Hoya ─
+  {
+    code: 'Hoya iSert 251', label: 'Hoya iSert 251 (PY-60AD)',
+    family: 'iSert 251', manufacturer: 'Hoya',
+    aConstant: 118.8, haigisA0: -0.940, haigisA1: 0.229, haigisA2: 0.216,
+  },
+  {
+    code: 'Hoya XY-1', label: 'Hoya XY-1 (iSert 250)',
+    family: 'XY-1', manufacturer: 'Hoya',
+    aConstant: 118.0, haigisA0: -0.940, haigisA1: 0.229, haigisA2: 0.216,
+  },
+  // ─ Carl Zeiss ─
+  {
+    code: 'Zeiss CT LUCIA 601P', label: 'Zeiss CT LUCIA 601P',
+    family: 'CT LUCIA 601P', manufacturer: 'Carl Zeiss',
+    aConstant: 118.9, haigisA0: -1.320, haigisA1: 0.262, haigisA2: 0.189,
+  },
+  {
+    code: 'Zeiss AT LISA tri 839MP', label: 'Zeiss AT LISA tri 839MP',
+    family: 'AT LISA tri 839MP', manufacturer: 'Carl Zeiss',
+    aConstant: 118.8, haigisA0: -1.240, haigisA1: 0.256, haigisA2: 0.188,
+  },
+  // ─ Rayner ─
+  {
+    code: 'Rayner RayOne 620H', label: 'Rayner RayOne 620H',
+    family: 'RayOne 620H', manufacturer: 'Rayner',
+    aConstant: 119.1, haigisA0: -1.220, haigisA1: 0.249, haigisA2: 0.192,
+  },
+]
+
 export const CALCULATOR_LENS_CATALOGS: Record<string, CalcLens[]> = {
   'tecnis-toric':        TECNIS_LENS_CATALOG,
   'apacrs-true-k-toric': APACRS_LENS_CATALOG,
-  'apacrs-toric':        APACRS_LENS_CATALOG, // same catalog as True K Toric
+  'apacrs-toric':        APACRS_LENS_CATALOG,        // same catalog as True K Toric
+  'brascrs-multiformula': BRASCRS_LENS_CATALOG,
+  'brascrs-double-k':     BRASCRS_LENS_CATALOG,
 }
 
 export function getLensesForCalculator(calcId: string): CalcLens[] {

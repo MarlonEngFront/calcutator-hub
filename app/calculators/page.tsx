@@ -42,20 +42,20 @@ const CALCULATORS = [
     name: 'Double K (BRASCRS)',
     org: 'BRASCRS',
     url: 'https://brascrs.com.br/area-do-associado/central-de-calculadoras-brascrs/double-k',
-    description: 'Cálculo pós-LASIK miópico ou hipermetrópico. Requer histórico de refração.',
-    status: 'coming' as const,
-    tags: ['Pós-LASIK', 'Double K'],
-    logoText: 'BRS', logoBg: 'bg-green-700', time: 'N/A',
+    description: 'Método Aramberri Double-K para olhos pós-LASIK. SRK/T, Holladay 1, Hoffer Q, Haigis.',
+    status: 'available' as const,
+    tags: ['Pós-LASIK', 'Double K', 'SRK/T', 'Haigis'],
+    logoText: 'BRS', logoBg: 'bg-green-700', time: '~2-3s',
   },
   {
     id: 'brascrs-multiformula',
     name: 'Multifórmula (BRASCRS)',
     org: 'BRASCRS',
     url: 'https://brascrs.com.br/area-do-associado/central-de-calculadoras-brascrs/multiformula-brascrs',
-    description: 'SRK/T, Hoffer Q, Holladay, Haigis e outras fórmulas.',
-    status: 'coming' as const,
+    description: 'SRK/T, Holladay 1, Hoffer Q e Haigis em paralelo. Modo Wang-Koch disponível.',
+    status: 'available' as const,
     tags: ['SRK/T', 'Haigis', 'Holladay', 'Hoffer Q'],
-    logoText: 'BRS', logoBg: 'bg-green-700', time: 'N/A',
+    logoText: 'BRS', logoBg: 'bg-green-700', time: '~2-3s',
   },
   {
     id: 'escrs',
@@ -242,7 +242,17 @@ export default function CalculatorsPage() {
           lensOverrides: Object.fromEntries(
             Object.entries(lensOverrides).map(([id, l]) => [
               id,
-              { id: l.code, brand: l.manufacturer, family: l.family, a_constant: 119.1, toric_available: true, code: l.code },
+              {
+                id: l.code,
+                brand: l.manufacturer,
+                family: l.family,
+                a_constant: l.aConstant ?? 119.1,
+                toric_available: l.haigisA0 == null, // formula-based calcs are not toric
+                code: l.code,
+                ...(l.haigisA0 != null ? { haigisA0: l.haigisA0 } : {}),
+                ...(l.haigisA1 != null ? { haigisA1: l.haigisA1 } : {}),
+                ...(l.haigisA2 != null ? { haigisA2: l.haigisA2 } : {}),
+              },
             ])
           ),
           isDemoData: meta.filename === 'demo-biometry.json',
