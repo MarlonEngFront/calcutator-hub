@@ -15,6 +15,7 @@ interface HubCalculateRequest {
   biometry: ParsedBiometry
   iol: IOL
   surgeryParams: SurgeryParams
+  lensOverrides?: Record<string, GatewayLens>
   isDemoData?: boolean
 }
 
@@ -72,7 +73,7 @@ function buildLens(iol: IOL): GatewayLens {
 export async function POST(req: NextRequest) {
   try {
     const body: HubCalculateRequest = await req.json()
-    const { calculatorIds, biometry, iol, surgeryParams, isDemoData } = body
+    const { calculatorIds, biometry, iol, surgeryParams, lensOverrides, isDemoData } = body
 
     const requestId = `voiston-hub-${Date.now()}`
     const lens = buildLens(iol)
@@ -84,9 +85,10 @@ export async function POST(req: NextRequest) {
 
     const base = {
       requestId,
-      source: { app: 'jjvisionpro' as const, environment: 'unknown' as const },
+      source: { app: 'calculator-hub', environment: 'unknown' as const },
       patient: { isDemoData: isDemoData ?? false },
       lens,
+      ...(lensOverrides && Object.keys(lensOverrides).length > 0 ? { lensOverrides } : {}),
       eyes,
     }
 

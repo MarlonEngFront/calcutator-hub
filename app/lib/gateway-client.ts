@@ -55,7 +55,7 @@ export type GatewayLens = {
 export type GatewayRequest = {
   requestId: string
   source: {
-    app: 'jjvisionpro'
+    app: string
     environment: 'local' | 'preview' | 'production' | 'unknown'
   }
   patient: {
@@ -65,6 +65,7 @@ export type GatewayRequest = {
   }
   calculator: { id: string; label?: string }
   lens: GatewayLens
+  lensOverrides?: Record<string, GatewayLens>
   eyes: {
     OD?: GatewayEye
     OE?: GatewayEye

@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import { IOL_CATALOG, MANUFACTURERS, IOL_TYPES, type IOL } from '@/app/lib/iol-catalog'
+import { getLensesForCalculator, type CalcLens } from '@/app/lib/calculator-lens-catalogs'
 
 const CALCULATORS = [
   {
@@ -145,6 +146,42 @@ function IOLSelector({ selected, onChange }: { selected: IOL | null; onChange: (
   )
 }
 
+// ─── Per-calculator Lens Selector ───────────────────────────────────
+interface CalcLensSelectorProps {
+  calcId: string
+  calcName: string
+  selected: CalcLens | null
+  onChange: (lens: CalcLens) => void
+}
+
+function CalcLensSelector({ calcId, calcName, selected, onChange }: CalcLensSelectorProps) {
+  const lenses = getLensesForCalculator(calcId)
+  if (lenses.length === 0) return null
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        {calcName}
+      </label>
+      <select
+        value={selected?.code ?? ''}
+        onChange={(e) => {
+          const lens = lenses.find((l) => l.code === e.target.value)
+          if (lens) onChange(lens)
+        }}
+        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 bg-white"
+      >
+        <option value="" disabled>Selecione a lente...</option>
+        {lenses.map((l) => (
+          <option key={l.code} value={l.code}>
+            {l.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 // ─── Surgery Params Panel ────────────────────────────────────────────
 function SurgeryPanel() {
   const { surgeryParams, setSurgeryParams } = useBiometryStore()
@@ -223,6 +260,8 @@ export default function CalculatorsPage() {
   const [selectedCalcs, setSelectedCalcs] = useState<Set<string>>(new Set())
   const [isCalculating, setIsCalculating] = useState(false)
   const [calcError, setCalcError] = useState<string | null>(null)
+  // Per-calculator lens overrides: calcId → CalcLens
+  const [lensOverrides, setLensOverrides] = useState<Record<string, CalcLens>>({})
 
   if (!biometry || !meta) {
     return (
@@ -246,7 +285,9 @@ export default function CalculatorsPage() {
     })
   }
   const selectedAvailable = [...selectedCalcs].filter((id) => available.find((c) => c.id === id))
-  const canCalculate = selectedAvailable.length > 0 && selectedIOL != null
+  // All selected calculators must have a lens chosen
+  const allLensesSelected = selectedAvailable.every((id) => lensOverrides[id] != null)
+  const canCalculate = selectedAvailable.length > 0 && allLensesSelected
 
   const handleCalculate = async () => {
     if (!canCalculate || !selectedIOL) return
@@ -262,6 +303,12 @@ export default function CalculatorsPage() {
           biometry,
           iol: selectedIOL,
           surgeryParams,
+          lensOverrides: Object.fromEntries(
+            Object.entries(lensOverrides).map(([id, l]) => [
+              id,
+              { id: l.code, brand: l.manufacturer, family: l.family, a_constant: 119.1, toric_available: true, code: l.code },
+            ])
+          ),
           isDemoData: meta.filename === 'demo-biometry.json',
         }),
       })
@@ -367,6 +414,31 @@ export default function CalculatorsPage() {
         </div>
       </div>
 
+      {/* Per-calculator lens picker — shown only when calculators are selected */}
+      {selectedAvailable.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="font-semibold text-gray-900">4. Lente por Calculadora</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Cada calculadora usa seu próprio catálogo de lentes</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {selectedAvailable.map((calcId) => {
+              const calc = CALCULATORS.find((c) => c.id === calcId)
+              if (!calc) return null
+              return (
+                <CalcLensSelector
+                  key={calcId}
+                  calcId={calcId}
+                  calcName={calc.name}
+                  selected={lensOverrides[calcId] ?? null}
+                  onChange={(lens) => setLensOverrides((prev) => ({ ...prev, [calcId]: lens }))}
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {calcError && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-start gap-3 text-sm text-red-800">
@@ -378,9 +450,9 @@ export default function CalculatorsPage() {
       )}
 
       {/* Hint */}
-      {!selectedIOL && selectedAvailable.length > 0 && (
+      {selectedAvailable.length > 0 && !allLensesSelected && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
-          ⚠️ Selecione uma lente IOL (passo 1) para habilitar o cálculo.
+          ⚠️ Selecione a lente para cada calculadora escolhida (passo 4).
         </div>
       )}
 
@@ -394,9 +466,9 @@ export default function CalculatorsPage() {
           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors shadow-sm">
           {isCalculating ? (
             <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Calculando via gateway...</>
-          ) : !selectedIOL ? 'Selecione uma lente (passo 1)' :
-            selectedAvailable.length === 0 ? 'Selecione ao menos uma calculadora (passo 3)' :
-            `🔬 Calcular · ${selectedIOL.model} · ${selectedAvailable.length} calculadora${selectedAvailable.length > 1 ? 's' : ''} →`}
+          ) : selectedAvailable.length === 0 ? 'Selecione ao menos uma calculadora (passo 3)' :
+            !allLensesSelected ? 'Selecione a lente por calculadora (passo 4)' :
+            `🔬 Calcular · ${selectedAvailable.length} calculadora${selectedAvailable.length > 1 ? 's' : ''} →`}
         </button>
       </div>
     </div>
