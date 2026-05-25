@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { IOL } from '@/app/lib/iol-catalog'
 
 export interface ParsedBiometry {
@@ -146,7 +146,7 @@ export const useBiometryStore = create<BiometryStore>()(
     }),
     {
       name: 'voiston-hub-biometry',
-      storage: typeof window !== 'undefined' ? localStorage : undefined,
+      storage: typeof window !== 'undefined' ? createJSONStorage(() => localStorage) : undefined,
       // Exclude calculationResults — base64 screenshots can be MBs, crash hydration
       partialize: (state) => ({
         biometry: state.biometry,
