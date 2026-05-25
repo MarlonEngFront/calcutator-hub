@@ -76,6 +76,7 @@ export const APACRS_LENS_CATALOG: CalcLens[] = [
 export const CALCULATOR_LENS_CATALOGS: Record<string, CalcLens[]> = {
   'tecnis-toric':        TECNIS_LENS_CATALOG,
   'apacrs-true-k-toric': APACRS_LENS_CATALOG,
+  'apacrs-toric':        APACRS_LENS_CATALOG, // same catalog as True K Toric
 }
 
 export function getLensesForCalculator(calcId: string): CalcLens[] {

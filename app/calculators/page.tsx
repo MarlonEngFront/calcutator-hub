@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
-import { IOL_CATALOG, MANUFACTURERS, IOL_TYPES, type IOL } from '@/app/lib/iol-catalog'
+import { IOL_CATALOG } from '@/app/lib/iol-catalog'
 import { getLensesForCalculator, type CalcLens } from '@/app/lib/calculator-lens-catalogs'
 
 const CALCULATORS = [
@@ -69,83 +69,6 @@ const CALCULATORS = [
   },
 ]
 
-// ─── IOL Selector ────────────────────────────────────────────────────
-function IOLSelector({ selected, onChange }: { selected: IOL | null; onChange: (iol: IOL | null) => void }) {
-  const [manufacturer, setManufacturer] = useState('Todos')
-  const [typeFilter, setTypeFilter] = useState('Todos')
-  const [search, setSearch] = useState('')
-
-  const filtered = useMemo(() =>
-    IOL_CATALOG.filter((iol) => {
-      if (manufacturer !== 'Todos' && iol.manufacturer !== manufacturer) return false
-      if (typeFilter !== 'Todos' && iol.type !== typeFilter) return false
-      if (search && !iol.model.toLowerCase().includes(search.toLowerCase()) &&
-          !iol.manufacturer.toLowerCase().includes(search.toLowerCase())) return false
-      return true
-    }), [manufacturer, typeFilter, search])
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100">
-        <h3 className="font-semibold text-gray-900">1. Selecionar Lente (IOL)</h3>
-        <p className="text-xs text-gray-500 mt-0.5">A lente define quais calculadoras aceitam o cálculo</p>
-      </div>
-      <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap gap-2">
-        <input
-          placeholder="Buscar lente..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-40 text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400"
-        />
-        <select value={manufacturer} onChange={(e) => setManufacturer(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400">
-          <option>Todos</option>
-          {MANUFACTURERS.map((m) => <option key={m}>{m}</option>)}
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400">
-          <option>Todos</option>
-          {Object.entries(IOL_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </div>
-      <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
-        {filtered.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-6">Nenhuma lente encontrada</p>
-        )}
-        {filtered.map((iol) => (
-          <button key={iol.id} onClick={() => onChange(selected?.id === iol.id ? null : iol)}
-            className={`w-full text-left px-6 py-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors ${selected?.id === iol.id ? 'bg-blue-50' : ''}`}>
-            <div>
-              <span className="text-sm font-medium text-gray-900">{iol.model}</span>
-              <span className="ml-2 text-xs text-gray-400">{iol.manufacturer}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                iol.type === 'toric' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                iol.type === 'multifocal' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                iol.type === 'edof' ? 'bg-teal-50 text-teal-700 border-teal-200' :
-                iol.type === 'multifocal-toric' ? 'bg-pink-50 text-pink-700 border-pink-200' :
-                'bg-slate-50 text-slate-500 border-slate-200'
-              }`}>{IOL_TYPES[iol.type]}</span>
-              {selected?.id === iol.id && <span className="text-blue-600 font-bold">✓</span>}
-            </div>
-          </button>
-        ))}
-      </div>
-      {selected && (
-        <div className="px-6 py-3 bg-blue-50 border-t border-blue-100 flex items-center justify-between">
-          <div className="text-sm">
-            <span className="font-semibold text-blue-900">{selected.model}</span>
-            <span className="text-blue-600 ml-2">· {selected.manufacturer}</span>
-            {selected.aConstant && <span className="text-blue-500 ml-2">· A = {selected.aConstant}</span>}
-          </div>
-          <button onClick={() => onChange(null)} className="text-xs text-blue-400 hover:text-blue-600">Limpar</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Per-calculator Lens Selector ───────────────────────────────────
 interface CalcLensSelectorProps {
   calcId: string
@@ -189,7 +112,7 @@ function SurgeryPanel() {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100">
-        <h3 className="font-semibold text-gray-900">2. Parâmetros Cirúrgicos</h3>
+        <h3 className="font-semibold text-gray-900">3. Parâmetros Cirúrgicos</h3>
         <p className="text-xs text-gray-500 mt-0.5">SE LIO e alvo refrativo por olho — obrigatório para TECNIS</p>
       </div>
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -256,7 +179,7 @@ function SurgeryPanel() {
 // ─── Main Page ────────────────────────────────────────────────────────
 export default function CalculatorsPage() {
   const router = useRouter()
-  const { biometry, meta, selectedIOL, setSelectedIOL, surgeryParams, setCalculationResults } = useBiometryStore()
+  const { biometry, meta, surgeryParams, setCalculationResults } = useBiometryStore()
   const [selectedCalcs, setSelectedCalcs] = useState<Set<string>>(new Set())
   const [isCalculating, setIsCalculating] = useState(false)
   const [calcError, setCalcError] = useState<string | null>(null)
@@ -290,9 +213,22 @@ export default function CalculatorsPage() {
   const canCalculate = selectedAvailable.length > 0 && allLensesSelected
 
   const handleCalculate = async () => {
-    if (!canCalculate || !selectedIOL) return
+    if (!canCalculate) return
     setIsCalculating(true)
     setCalcError(null)
+
+    // Derive base IOL from first selected calculator's lens override.
+    // Gateway adapters use lensOverrides[calcId] per-calc; base lens is fallback only.
+    const firstCalcLens = lensOverrides[selectedAvailable[0]]
+    const baseIol =
+      IOL_CATALOG.find((i) => i.manufacturerCode === firstCalcLens.code) ?? {
+        id: firstCalcLens.code,
+        model: firstCalcLens.family,
+        manufacturer: firstCalcLens.manufacturer,
+        manufacturerCode: firstCalcLens.code,
+        type: 'toric' as const,
+        aConstant: 119.1,
+      }
 
     try {
       const res = await fetch('/api/calculate', {
@@ -301,7 +237,7 @@ export default function CalculatorsPage() {
         body: JSON.stringify({
           calculatorIds: selectedAvailable,
           biometry,
-          iol: selectedIOL,
+          iol: baseIol,
           surgeryParams,
           lensOverrides: Object.fromEntries(
             Object.entries(lensOverrides).map(([id, l]) => [
@@ -339,7 +275,7 @@ export default function CalculatorsPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configurar Cálculo</h1>
-        <p className="text-gray-500 mt-1">Selecione a lente, defina os parâmetros e escolha as calculadoras</p>
+        <p className="text-gray-500 mt-1">Escolha as calculadoras, selecione a lente de cada uma e defina os parâmetros cirúrgicos</p>
       </div>
 
       {/* Biometry summary */}
@@ -359,14 +295,10 @@ export default function CalculatorsPage() {
         </div>
       </div>
 
-      {/* IOL + Surgery */}
-      <IOLSelector selected={selectedIOL} onChange={setSelectedIOL} />
-      <SurgeryPanel />
-
-      {/* Calculators */}
+      {/* 1. Calculators */}
       <div>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          3. Calculadoras · {selectedAvailable.length} selecionada{selectedAvailable.length !== 1 ? 's' : ''}
+          1. Calculadoras · {selectedAvailable.length} selecionada{selectedAvailable.length !== 1 ? 's' : ''}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {CALCULATORS.map((calc) => {
@@ -414,11 +346,11 @@ export default function CalculatorsPage() {
         </div>
       </div>
 
-      {/* Per-calculator lens picker — shown only when calculators are selected */}
+      {/* 2. Per-calculator lens picker — shown only when calculators are selected */}
       {selectedAvailable.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-semibold text-gray-900">4. Lente por Calculadora</h3>
+            <h3 className="font-semibold text-gray-900">2. Lente por Calculadora</h3>
             <p className="text-xs text-gray-500 mt-0.5">Cada calculadora usa seu próprio catálogo de lentes</p>
           </div>
           <div className="p-6 space-y-4">
@@ -439,6 +371,9 @@ export default function CalculatorsPage() {
         </div>
       )}
 
+      {/* 3. Surgery params */}
+      <SurgeryPanel />
+
       {/* Error */}
       {calcError && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-start gap-3 text-sm text-red-800">
@@ -452,7 +387,7 @@ export default function CalculatorsPage() {
       {/* Hint */}
       {selectedAvailable.length > 0 && !allLensesSelected && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
-          ⚠️ Selecione a lente para cada calculadora escolhida (passo 4).
+          ⚠️ Selecione a lente para cada calculadora escolhida (passo 2).
         </div>
       )}
 
@@ -466,8 +401,8 @@ export default function CalculatorsPage() {
           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors shadow-sm">
           {isCalculating ? (
             <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Calculando via gateway...</>
-          ) : selectedAvailable.length === 0 ? 'Selecione ao menos uma calculadora (passo 3)' :
-            !allLensesSelected ? 'Selecione a lente por calculadora (passo 4)' :
+          ) : selectedAvailable.length === 0 ? 'Selecione ao menos uma calculadora (passo 1)' :
+            !allLensesSelected ? 'Selecione a lente por calculadora (passo 2)' :
             `🔬 Calcular · ${selectedAvailable.length} calculadora${selectedAvailable.length > 1 ? 's' : ''} →`}
         </button>
       </div>
