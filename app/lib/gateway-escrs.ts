@@ -33,7 +33,7 @@ export interface ESCRSCalculationResult {
   success: boolean
   calculator: 'ESCRS'
   eye: 'OD' | 'OS'
-  input: {
+  input?: {
     k1: number
     k2: number
     al: number
