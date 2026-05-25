@@ -62,10 +62,10 @@ const CALCULATORS = [
     name: 'ESCRS IOL Calculator',
     org: 'ESCRS',
     url: 'https://iolcalculator.escrs.org/',
-    description: 'Calculadora da Sociedade Europeia de Cirurgia de Catarata.',
-    status: 'coming' as const,
-    tags: ['Barrett', 'Haigis', 'Hoffer Q', 'SRK/T'],
-    logoText: 'ESC', logoBg: 'bg-blue-700', time: 'N/A',
+    description: 'Barrett, Cooke K6, EVO, Hill-RBF, Hoffer®QST, Kane, Pearl DGS.',
+    status: 'available' as const,
+    tags: ['Barrett', 'Kane', 'EVO', 'Hill-RBF'],
+    logoText: 'ESC', logoBg: 'bg-blue-700', time: '~30-40s',
   },
 ]
 

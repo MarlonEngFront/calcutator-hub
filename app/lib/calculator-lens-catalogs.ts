@@ -168,6 +168,7 @@ export const CALCULATOR_LENS_CATALOGS: Record<string, CalcLens[]> = {
   'apacrs-toric':        APACRS_LENS_CATALOG,        // same catalog as True K Toric
   'brascrs-multiformula': BRASCRS_LENS_CATALOG,
   'brascrs-double-k':     BRASCRS_LENS_CATALOG,
+  'escrs':                BRASCRS_LENS_CATALOG,  // same A-constant based catalog
 }
 
 export function getLensesForCalculator(calcId: string): CalcLens[] {
