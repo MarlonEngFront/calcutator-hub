@@ -45,6 +45,7 @@ export interface ParsedExamSession {
     OD: Record<string, string>
     OE: Record<string, string>
   }
+  relatedMeasurementTypeNames?: string[]
 }
 
 // ── Internal types ────────────────────────────────────────────────────────────
