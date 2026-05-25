@@ -147,6 +147,14 @@ export const useBiometryStore = create<BiometryStore>()(
     {
       name: 'voiston-hub-biometry',
       storage: typeof window !== 'undefined' ? localStorage : undefined,
+      // Exclude calculationResults — base64 screenshots can be MBs, crash hydration
+      partialize: (state) => ({
+        biometry: state.biometry,
+        meta: state.meta,
+        selectedIOL: state.selectedIOL,
+        surgeryParams: state.surgeryParams,
+        // calculationResults intentionally excluded
+      }),
     }
   )
 )

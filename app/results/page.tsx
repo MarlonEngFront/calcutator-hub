@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { CalculationResult } from '@/app/stores/biometry-store'
@@ -27,6 +28,7 @@ function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
   const eyeBadge = eye === 'OD'
     ? 'bg-blue-600 text-white'
     : 'bg-indigo-600 text-white'
+  const [showScreenshot, setShowScreenshot] = useState(false)
 
   return (
     <div className={`rounded-xl border-2 ${eyeColor} overflow-hidden`}>
@@ -36,10 +38,18 @@ function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
         <span className="text-sm font-semibold text-gray-700">
           {eye === 'OD' ? 'Olho Direito' : 'Olho Esquerdo'}
         </span>
+        {result.screenshotDataUrl && (
+          <button
+            onClick={() => setShowScreenshot((v) => !v)}
+            className="ml-auto text-xs text-blue-600 hover:underline"
+          >
+            {showScreenshot ? '🔼 Ocultar' : '🖼 Ver resultado'}
+          </button>
+        )}
       </div>
 
-      {/* Screenshot (if available) */}
-      {result.screenshotDataUrl && (
+      {/* Screenshot — lazy: only render when toggled */}
+      {result.screenshotDataUrl && showScreenshot && (
         <div className="border-b border-inherit">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
