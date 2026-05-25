@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   typescript: {
     tsconfigPath: './tsconfig.json',
   },
-  eslint: {
-    dirs: ['app', 'lib'],
-  },
   // node-fetch e dependências nativas — não bundlar no server
   serverExternalPackages: [],
 }
