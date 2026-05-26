@@ -82,6 +82,8 @@ interface BiometryStore {
   selectedIOL: IOL | null
   surgeryParams: SurgeryParams
   calculationResults: CalculationResult[]
+  /** Base64 data URL of the original exam file — kept in memory only (not persisted) */
+  fileDataUrl: string | null
   /** Named surgical parameter presets — persisted */
   surgicalPresets: Record<string, SurgeryParams>
   /** Name of the currently active preset */
@@ -95,6 +97,7 @@ interface BiometryStore {
   setSurgeryParams: (params: Partial<SurgeryParams>) => void
   setCalculationResults: (results: CalculationResult[]) => void
   clearResults: () => void
+  setFileDataUrl: (url: string | null) => void
   /** Save current params as a named preset (or overwrite existing). */
   setSurgicalPreset: (name: string, params: SurgeryParams) => void
   /** Delete a named preset. Always keeps at least one preset. */
@@ -122,6 +125,7 @@ export const useBiometryStore = create<BiometryStore>()(
       selectedIOL: null,
       surgeryParams: DEFAULT_SURGERY,
       calculationResults: [],
+      fileDataUrl: null,
       surgicalPresets: DEFAULT_PRESETS,
       activeSurgicalPreset: 'Padrão 1',
 
@@ -133,6 +137,7 @@ export const useBiometryStore = create<BiometryStore>()(
           meta: null,
           selectedIOL: null,
           calculationResults: [],
+          fileDataUrl: null,
           surgeryParams: DEFAULT_SURGERY,
         }),
 
@@ -160,6 +165,8 @@ export const useBiometryStore = create<BiometryStore>()(
       setCalculationResults: (results) => set({ calculationResults: results }),
 
       clearResults: () => set({ calculationResults: [] }),
+
+      setFileDataUrl: (url) => set({ fileDataUrl: url }),
 
       setSurgicalPreset: (name, params) =>
         set((state) => ({

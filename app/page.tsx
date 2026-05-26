@@ -33,6 +33,7 @@ const PROCESS_STEPS = [
 export default function UploadPage() {
   const router = useRouter()
   const setBiometry = useBiometryStore((s) => s.setBiometry)
+  const setFileDataUrl = useBiometryStore((s) => s.setFileDataUrl)
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadState, setUploadState] = useState<HubUploadState | null>(null)
@@ -50,6 +51,12 @@ export default function UploadPage() {
       }
       setError(null)
       setCurrentFile(file.name)
+      // Read file for inline preview on validate page (stored in memory, not persisted)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        if (e.target?.result) setFileDataUrl(e.target.result as string)
+      }
+      reader.readAsDataURL(file)
       managerRef.current?.cancel()
 
       const manager = new HubUploadManager({
@@ -115,7 +122,7 @@ export default function UploadPage() {
       setShowModal(true)
       await manager.start()
     },
-    [setBiometry, router]
+    [setBiometry, setFileDataUrl, router]
   )
 
   const handleCancel = useCallback(() => {

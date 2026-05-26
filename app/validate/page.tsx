@@ -284,79 +284,103 @@ function EyeColumn({ eye, eyeData, surgeryParams, onFieldChange, onSurgeryChange
   )
 }
 
-// ─── Center sticky panel ───────────────────────────────────────────────────────
-function BiometryComparePanel({ biometry, meta }: { biometry: ParsedBiometry; meta: BiometryMeta }) {
-  const rows: Array<{
-    label: string; field: keyof ParsedBiometry['OD']; unit: string; decimals: number
-  }> = [
-    { label: 'AL',  field: 'AL',  unit: 'mm', decimals: 2 },
-    { label: 'K1',  field: 'K1',  unit: 'D',  decimals: 2 },
-    { label: 'K2',  field: 'K2',  unit: 'D',  decimals: 2 },
-    { label: 'ACD', field: 'ACD', unit: 'mm', decimals: 2 },
-    { label: 'LT',  field: 'LT',  unit: 'mm', decimals: 2 },
-    { label: 'CCT', field: 'CCT', unit: 'µm', decimals: 0 },
-    { label: 'WTW', field: 'WTW', unit: 'mm', decimals: 1 },
-    { label: 'CYL', field: 'Cyl', unit: 'D',  decimals: 2 },
-  ]
+// ─── Center sticky panel — file viewer ────────────────────────────────────────
+interface ExamViewerPanelProps {
+  fileDataUrl: string | null
+  meta: BiometryMeta
+  biometry: ParsedBiometry
+}
 
+function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) {
+  const rows: Array<{ label: string; field: keyof ParsedBiometry['OD']; unit: string; d: number }> = [
+    { label: 'AL',  field: 'AL',  unit: 'mm', d: 2 },
+    { label: 'K1',  field: 'K1',  unit: 'D',  d: 2 },
+    { label: 'K2',  field: 'K2',  unit: 'D',  d: 2 },
+    { label: 'ACD', field: 'ACD', unit: 'mm', d: 2 },
+    { label: 'LT',  field: 'LT',  unit: 'mm', d: 2 },
+    { label: 'CCT', field: 'CCT', unit: 'µm', d: 0 },
+    { label: 'WTW', field: 'WTW', unit: 'mm', d: 1 },
+    { label: 'CYL', field: 'Cyl', unit: 'D',  d: 2 },
+  ]
   const fmt = (v: number | undefined, d: number) =>
     v != null && Number.isFinite(v) ? (d === 0 ? Math.round(v).toString() : v.toFixed(d)) : '—'
 
+  const isPDF = meta.fileType === 'application/pdf'
+  const isImage = meta.fileType?.startsWith('image/')
+
+  if (fileDataUrl && (isPDF || isImage)) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        {/* Header controls */}
+        <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
+          <a href={fileDataUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[11px] text-slate-300 hover:text-white
+              px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors">
+            ↗ Abrir em Nova Aba
+          </a>
+          <span className="ml-auto text-[11px] font-bold text-blue-400">Biometria Original</span>
+        </div>
+        {/* File viewer */}
+        <div className="h-[520px] overflow-hidden bg-slate-100">
+          {isPDF && (
+            <iframe
+              src={fileDataUrl}
+              className="w-full h-full border-0"
+              title="Biometria original"
+            />
+          )}
+          {isImage && (
+            <div className="w-full h-full overflow-y-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fileDataUrl} className="w-full h-auto" alt="Biometria original" />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback: numeric comparison table
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Biometria</p>
         <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">
           {meta.equipment ?? meta.filename}
         </p>
       </div>
-
-      {/* OD / OE column headers */}
       <div className="grid grid-cols-3 px-3 py-1.5 bg-white border-b border-slate-100">
         <span />
         <span className="text-[10px] font-bold text-blue-600 text-center uppercase tracking-wide">OD</span>
         <span className="text-[10px] font-bold text-indigo-600 text-center uppercase tracking-wide">OE</span>
       </div>
-
-      {/* Data rows */}
       {rows.map((row) => {
         const od = biometry.OD[row.field] as number | undefined
         const oe = biometry.OE[row.field] as number | undefined
         if (od == null && oe == null) return null
-        const odStatus = fieldStatus(row.label === 'CYL' ? 'Cyl' : row.label, od)
-        const oeStatus = fieldStatus(row.label === 'CYL' ? 'Cyl' : row.label, oe)
+        const odSt = fieldStatus(row.field === 'Cyl' ? 'Cyl' : row.label, od)
+        const oeSt = fieldStatus(row.field === 'Cyl' ? 'Cyl' : row.label, oe)
         return (
           <div key={row.label}
-            className="grid grid-cols-3 gap-1 px-3 py-1.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+            className="grid grid-cols-3 gap-1 px-3 py-1.5 border-b border-slate-100 last:border-0 hover:bg-slate-50">
             <span className="text-[11px] text-slate-500 font-semibold self-center">
-              {row.label}
-              <span className="text-slate-400 font-normal ml-1">{row.unit}</span>
+              {row.label} <span className="text-slate-400 font-normal">{row.unit}</span>
             </span>
             <div className="flex items-center justify-center gap-1">
-              <span className={`text-xs font-mono font-bold tabular-nums ${odStatus === 'warn' ? 'text-amber-600' : 'text-blue-700'}`}>
-                {fmt(od, row.decimals)}
+              <span className={`text-xs font-mono font-bold tabular-nums ${odSt === 'warn' ? 'text-amber-600' : 'text-blue-700'}`}>
+                {fmt(od, row.d)}
               </span>
-              <CheckBadge status={odStatus} />
+              <CheckBadge status={odSt} />
             </div>
             <div className="flex items-center justify-center gap-1">
-              <span className={`text-xs font-mono font-bold tabular-nums ${oeStatus === 'warn' ? 'text-amber-600' : 'text-indigo-700'}`}>
-                {fmt(oe, row.decimals)}
+              <span className={`text-xs font-mono font-bold tabular-nums ${oeSt === 'warn' ? 'text-amber-600' : 'text-indigo-700'}`}>
+                {fmt(oe, row.d)}
               </span>
-              <CheckBadge status={oeStatus} />
+              <CheckBadge status={oeSt} />
             </div>
           </div>
         )
       })}
-
-      {/* Exam info */}
-      {meta.examId && (
-        <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50">
-          <p className="text-[11px] text-slate-400">
-            ID: <span className="font-mono font-semibold text-slate-600">{meta.examId}</span>
-          </p>
-        </div>
-      )}
     </div>
   )
 }
@@ -368,6 +392,7 @@ export default function ValidatePage() {
     biometry, meta, clearBiometry,
     updateODField, updateOEField,
     surgeryParams, setSurgeryParams,
+    fileDataUrl,
   } = useBiometryStore()
   const [isConfirming, setIsConfirming] = useState(false)
 
@@ -470,7 +495,7 @@ export default function ValidatePage() {
 
         {/* Sticky center panel */}
         <div className="sticky top-36">
-          <BiometryComparePanel biometry={biometry} meta={meta} />
+          <ExamViewerPanel fileDataUrl={fileDataUrl} meta={meta} biometry={biometry} />
         </div>
 
         {/* OE */}
