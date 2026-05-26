@@ -326,9 +326,20 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
       <div
         className="rounded-2xl overflow-hidden"
         style={{
-          border: isExpanded ? '2px solid #14b8a6' : '1px solid #e2e8f0',
-          boxShadow: isExpanded ? '0 10px 30px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.06)',
-          transition: 'border 0.3s ease, box-shadow 0.3s ease',
+          border: '1px solid',
+          borderColor: isExpanded ? '#14b8a6' : '#e2e8f0',
+          outline: isExpanded ? '3px solid rgba(20,184,166,0.22)' : '3px solid transparent',
+          outlineOffset: '2px',
+          boxShadow: isExpanded
+            ? '0 0 0 1px rgba(20,184,166,0.1), 0 20px 45px rgba(0,0,0,0.22)'
+            : '0 1px 4px rgba(0,0,0,0.06)',
+          transform: isExpanded ? 'scale(1.008)' : 'scale(1)',
+          transition: [
+            'border-color 0.4s cubic-bezier(0.4,0,0.2,1)',
+            'outline-color 0.4s cubic-bezier(0.4,0,0.2,1)',
+            'box-shadow 0.4s cubic-bezier(0.4,0,0.2,1)',
+            'transform 0.45s cubic-bezier(0.34,1.56,0.64,1)',
+          ].join(', '),
         }}
       >
         {/* Header */}
@@ -343,11 +354,17 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
           </a>
           <button
             onClick={onToggleExpand}
-            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors whitespace-nowrap"
-            style={isExpanded
-              ? { background: '#14b8a6', color: '#fff', borderColor: '#14b8a6' }
-              : { background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', borderColor: '#475569' }
-            }
+            className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border whitespace-nowrap font-medium"
+            style={{
+              background: isExpanded ? '#14b8a6' : 'rgba(255,255,255,0.07)',
+              color: isExpanded ? '#fff' : '#cbd5e1',
+              borderColor: isExpanded ? '#0d9488' : '#475569',
+              transform: 'scale(1)',
+              transition: 'background 0.3s cubic-bezier(0.4,0,0.2,1), color 0.3s, border-color 0.3s, transform 0.15s',
+            }}
+            onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.94)' }}
+            onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
           >
             {isExpanded ? '⤡ Reduzir Painel' : '⤢ Ampliar Painel'}
           </button>
@@ -358,7 +375,7 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
           style={{
             height: isExpanded ? '80vh' : '420px',
             maxHeight: isExpanded ? '1200px' : '800px',
-            transition: 'height 0.4s ease, max-height 0.4s ease',
+            transition: 'height 0.5s cubic-bezier(0.4,0,0.2,1), max-height 0.5s cubic-bezier(0.4,0,0.2,1)',
           }}
         >
           {isPDF && (
@@ -468,7 +485,7 @@ export default function ValidatePage() {
       className="mx-auto space-y-5"
       style={{
         maxWidth: isPanelExpanded ? '1800px' : '1024px',
-        transition: 'max-width 0.4s ease',
+        transition: 'max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
 
@@ -539,8 +556,8 @@ export default function ValidatePage() {
         style={{
           gridTemplateColumns: isPanelExpanded
             ? '1fr 2.5fr 1fr'
-            : 'minmax(0,1fr) 260px minmax(0,1fr)',
-          transition: 'grid-template-columns 0.4s ease',
+            : '1fr 260px 1fr',
+          transition: 'grid-template-columns 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
 
