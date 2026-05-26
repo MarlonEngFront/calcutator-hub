@@ -39,6 +39,7 @@ export interface BiometryMeta {
   fileSize: number
   fileType: string
   patientName?: string
+  gender?: string
   equipment?: string
   examType?: string
   examId?: number        // ID do exame na API Voiston

@@ -94,6 +94,7 @@ export default function UploadPage() {
               uploadedAt: new Date().toISOString(),
               equipment: session.examTypeName,
               patientName: session.patientMetadata?.name,
+              gender: session.patientMetadata?.gender,
               examType: session.examTypeName,
             }
           )
