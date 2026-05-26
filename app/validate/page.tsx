@@ -459,7 +459,7 @@ export default function ValidatePage() {
     fileDataUrl,
   } = useBiometryStore()
   const [isConfirming, setIsConfirming] = useState(false)
-  const [isPanelExpanded, setIsPanelExpanded] = useState(false)
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true)
 
   if (!biometry || !meta) {
     return (
