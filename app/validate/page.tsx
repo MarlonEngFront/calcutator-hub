@@ -60,7 +60,7 @@ interface FieldRowProps {
 function FieldRow({ label, value, unit, field, step = 0.01, note, onChange }: FieldRowProps) {
   const status = field ? fieldStatus(field, value) : 'neutral'
   return (
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition-colors group">
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 last:border-0 hover:bg-blue-50/30 transition-colors group">
       <div className="flex-1 min-w-0">
         <span className="text-xs font-medium text-slate-600">{label}</span>
         {note && <span className="block text-[11px] text-slate-400 leading-tight">{note}</span>}
@@ -70,8 +70,10 @@ function FieldRow({ label, value, unit, field, step = 0.01, note, onChange }: Fi
           type="number" step={step}
           value={value ?? ''}
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          className="w-[4.5rem] text-right font-mono font-semibold text-sm text-gray-900 bg-transparent border-0 outline-none
-            focus:bg-white focus:ring-1 focus:ring-blue-200 focus:rounded focus:px-1 transition-all"
+          className="w-[4.5rem] text-right font-mono font-semibold text-sm text-gray-900
+            bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
+            hover:border-blue-400 hover:bg-white/60
+            focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
         />
         <span className="text-[11px] text-slate-400 w-5 shrink-0">{unit}</span>
       </div>
@@ -89,7 +91,7 @@ function KRow({
 }) {
   const status = fieldStatus(field, value)
   return (
-    <div className="px-4 py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition-colors">
+    <div className="px-4 py-2 border-b border-slate-100 last:border-0 hover:bg-blue-50/30 transition-colors">
       <div className="flex items-center gap-2">
         <span className="flex-1 text-xs font-medium text-slate-600">{label}</span>
         <div className="flex items-center gap-1 shrink-0">
@@ -97,8 +99,10 @@ function KRow({
             type="number" step={0.01}
             value={value ?? ''}
             onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            className="w-[4.5rem] text-right font-mono font-semibold text-sm text-gray-900 bg-transparent border-0 outline-none
-              focus:bg-white focus:ring-1 focus:ring-blue-200 focus:rounded focus:px-1 transition-all"
+            className="w-[4.5rem] text-right font-mono font-semibold text-sm text-gray-900
+              bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
+              hover:border-blue-400 hover:bg-white/60
+              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
           />
           <span className="text-[11px] text-slate-400 w-4 shrink-0">D</span>
         </div>
@@ -111,8 +115,10 @@ function KRow({
             type="number" step={1} min={0} max={180}
             value={axis ?? ''}
             onChange={(e) => onAxisChange(parseInt(e.target.value) || 0)}
-            className="w-10 text-right font-mono text-[11px] text-slate-500 bg-transparent border-0 outline-none
-              focus:bg-white focus:ring-1 focus:ring-blue-200 focus:rounded focus:px-1 transition-all"
+            className="w-10 text-right font-mono text-[11px] text-slate-500
+              bg-transparent border-0 border-b border-slate-200 outline-none rounded-none
+              hover:border-blue-400 hover:bg-white/60
+              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-0.5 transition-all"
           />
           <span className="text-[11px] text-slate-400">°</span>
         </div>
@@ -241,21 +247,25 @@ function EyeColumn({ eye, eyeData, surgeryParams, onFieldChange, onSurgeryChange
       {/* Surgery params */}
       <SectionHeader label="Parâmetros Cirúrgicos" />
       {/* SIA — shared, same for both eyes */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 hover:bg-blue-50/30 transition-colors">
         <span className="flex-1 text-xs font-medium text-slate-600">SIA (Cirurgião)</span>
         <div className="flex items-center gap-1 shrink-0">
           <input type="number" step={0.01} min={0} max={3}
             value={surgeryParams.SIA}
             onChange={(e) => onSurgeryChange({ SIA: parseFloat(e.target.value) || 0 })}
-            className="w-12 text-right font-mono font-semibold text-sm text-gray-900 bg-transparent border-0 outline-none
-              focus:bg-white focus:ring-1 focus:ring-blue-200 focus:rounded focus:px-1 transition-all"
+            className="w-12 text-right font-mono font-semibold text-sm text-gray-900
+              bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
+              hover:border-blue-400 hover:bg-white/60
+              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
           />
           <span className="text-[11px] text-slate-400">@</span>
           <input type="number" step={1} min={0} max={180}
             value={surgeryParams.SIAAxis}
             onChange={(e) => onSurgeryChange({ SIAAxis: parseInt(e.target.value) || 0 })}
-            className="w-10 text-right font-mono font-semibold text-sm text-gray-900 bg-transparent border-0 outline-none
-              focus:bg-white focus:ring-1 focus:ring-blue-200 focus:rounded focus:px-1 transition-all"
+            className="w-10 text-right font-mono font-semibold text-sm text-gray-900
+              bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
+              hover:border-blue-400 hover:bg-white/60
+              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
           />
           <span className="text-[11px] text-slate-400">°</span>
         </div>
@@ -292,6 +302,8 @@ interface ExamViewerPanelProps {
 }
 
 function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) {
+  const [expanded, setExpanded] = useState(false)
+
   const rows: Array<{ label: string; field: keyof ParsedBiometry['OD']; unit: string; d: number }> = [
     { label: 'AL',  field: 'AL',  unit: 'mm', d: 2 },
     { label: 'K1',  field: 'K1',  unit: 'D',  d: 2 },
@@ -307,36 +319,87 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
 
   const isPDF = meta.fileType === 'application/pdf'
   const isImage = meta.fileType?.startsWith('image/')
+  const hasFile = !!fileDataUrl && (isPDF || isImage)
 
-  if (fileDataUrl && (isPDF || isImage)) {
+  // ── Shared file viewer content ───────────────────────────────────────
+  function FileContent({ fullHeight }: { fullHeight?: boolean }) {
+    if (!hasFile) return null
+    const h = fullHeight ? 'h-full' : 'h-[480px]'
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        {/* Header controls */}
-        <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
-          <a href={fileDataUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[11px] text-slate-300 hover:text-white
-              px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors">
-            ↗ Abrir em Nova Aba
-          </a>
-          <span className="ml-auto text-[11px] font-bold text-blue-400">Biometria Original</span>
-        </div>
-        {/* File viewer */}
-        <div className="h-[520px] overflow-hidden bg-slate-100">
-          {isPDF && (
-            <iframe
-              src={fileDataUrl}
-              className="w-full h-full border-0"
-              title="Biometria original"
-            />
-          )}
-          {isImage && (
-            <div className="w-full h-full overflow-y-auto">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fileDataUrl} className="w-full h-auto" alt="Biometria original" />
-            </div>
-          )}
-        </div>
+      <div className={`${h} overflow-hidden bg-slate-900`}>
+        {isPDF && (
+          <iframe
+            src={fileDataUrl!}
+            className="w-full h-full border-0"
+            title="Biometria original"
+          />
+        )}
+        {isImage && (
+          <div className="w-full h-full overflow-y-auto flex items-start justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
+          </div>
+        )}
       </div>
+    )
+  }
+
+  if (hasFile) {
+    return (
+      <>
+        {/* ── Expanded modal overlay ─────────────────────────────────── */}
+        {expanded && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 flex flex-col"
+            onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false) }}
+          >
+            <div className="flex-1 flex flex-col min-h-0 mx-4 my-4 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900">
+              {/* Modal header */}
+              <div className="flex items-center gap-2 px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
+                <span className="text-sm font-bold text-white flex-1 truncate">
+                  {meta.equipment ?? meta.filename}
+                </span>
+                <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] text-slate-300 hover:text-white px-2.5 py-1 rounded
+                    border border-slate-600 hover:bg-slate-700 transition-colors">
+                  ↗ Nova Aba
+                </a>
+                <button
+                  onClick={() => setExpanded(false)}
+                  className="flex items-center gap-1.5 text-[11px] text-slate-300 hover:text-white
+                    px-2.5 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors"
+                >
+                  ✕ Fechar
+                </button>
+              </div>
+              <FileContent fullHeight />
+            </div>
+          </div>
+        )}
+
+        {/* ── Inline panel ──────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          {/* Header controls */}
+          <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-300 flex-1 truncate">
+              Biometria Original
+            </span>
+            <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white
+                px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors whitespace-nowrap">
+              ↗ Nova Aba
+            </a>
+            <button
+              onClick={() => setExpanded(true)}
+              className="flex items-center gap-1 text-[10px] text-slate-300 hover:text-white
+                px-2 py-1 rounded border border-slate-500 hover:bg-slate-700 bg-slate-700/60 transition-colors whitespace-nowrap"
+            >
+              ⤢ Ampliar Painel
+            </button>
+          </div>
+          <FileContent />
+        </div>
+      </>
     )
   }
 
@@ -480,7 +543,7 @@ export default function ValidatePage() {
       )}
 
       {/* ── 3-column layout ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_200px_minmax(0,1fr)] gap-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)] gap-4 items-start">
 
         {/* OD */}
         <EyeColumn
