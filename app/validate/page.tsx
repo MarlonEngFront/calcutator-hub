@@ -299,11 +299,11 @@ interface ExamViewerPanelProps {
   fileDataUrl: string | null
   meta: BiometryMeta
   biometry: ParsedBiometry
+  isExpanded: boolean
+  onToggleExpand: () => void
 }
 
-function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) {
-  const [expanded, setExpanded] = useState(false)
-
+function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpand }: ExamViewerPanelProps) {
   const rows: Array<{ label: string; field: keyof ParsedBiometry['OD']; unit: string; d: number }> = [
     { label: 'AL',  field: 'AL',  unit: 'mm', d: 2 },
     { label: 'K1',  field: 'K1',  unit: 'D',  d: 2 },
@@ -321,85 +321,69 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
   const isImage = meta.fileType?.startsWith('image/')
   const hasFile = !!fileDataUrl && (isPDF || isImage)
 
-  // ── Shared file viewer content ───────────────────────────────────────
-  function FileContent({ fullHeight }: { fullHeight?: boolean }) {
-    if (!hasFile) return null
-    const h = fullHeight ? 'h-full' : 'h-[480px]'
-    return (
-      <div className={`${h} overflow-hidden bg-slate-900`}>
-        {isPDF && (
-          <iframe
-            src={fileDataUrl!}
-            className="w-full h-full border-0"
-            title="Biometria original"
-          />
-        )}
-        {isImage && (
-          <div className="w-full h-full overflow-y-auto flex items-start justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
-          </div>
-        )}
-      </div>
-    )
-  }
-
   if (hasFile) {
     return (
-      <>
-        {/* ── Expanded modal overlay ─────────────────────────────────── */}
-        {expanded && (
-          <div
-            className="fixed inset-0 z-50 bg-black/80 flex flex-col"
-            onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false) }}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          border: isExpanded ? '2px solid #14b8a6' : '1px solid #e2e8f0',
+          boxShadow: isExpanded ? '0 10px 30px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.06)',
+          transition: 'border 0.3s ease, box-shadow 0.3s ease',
+        }}
+      >
+        {/* Header */}
+        <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-300 flex-1 truncate">
+            Biometria Original
+          </span>
+          <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white
+              px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors whitespace-nowrap">
+            ↗ Nova Aba
+          </a>
+          <button
+            onClick={onToggleExpand}
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors whitespace-nowrap"
+            style={isExpanded
+              ? { background: '#14b8a6', color: '#fff', borderColor: '#14b8a6' }
+              : { background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', borderColor: '#475569' }
+            }
           >
-            <div className="flex-1 flex flex-col min-h-0 mx-4 my-4 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900">
-              {/* Modal header */}
-              <div className="flex items-center gap-2 px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
-                <span className="text-sm font-bold text-white flex-1 truncate">
-                  {meta.equipment ?? meta.filename}
-                </span>
-                <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
-                  className="text-[11px] text-slate-300 hover:text-white px-2.5 py-1 rounded
-                    border border-slate-600 hover:bg-slate-700 transition-colors">
-                  ↗ Nova Aba
-                </a>
-                <button
-                  onClick={() => setExpanded(false)}
-                  className="flex items-center gap-1.5 text-[11px] text-slate-300 hover:text-white
-                    px-2.5 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors"
-                >
-                  ✕ Fechar
-                </button>
-              </div>
-              <FileContent fullHeight />
-            </div>
-          </div>
-        )}
-
-        {/* ── Inline panel ──────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          {/* Header controls */}
-          <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-300 flex-1 truncate">
-              Biometria Original
-            </span>
-            <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white
-                px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors whitespace-nowrap">
-              ↗ Nova Aba
-            </a>
-            <button
-              onClick={() => setExpanded(true)}
-              className="flex items-center gap-1 text-[10px] text-slate-300 hover:text-white
-                px-2 py-1 rounded border border-slate-500 hover:bg-slate-700 bg-slate-700/60 transition-colors whitespace-nowrap"
-            >
-              ⤢ Ampliar Painel
-            </button>
-          </div>
-          <FileContent />
+            {isExpanded ? '⤡ Reduzir Painel' : '⤢ Ampliar Painel'}
+          </button>
         </div>
-      </>
+        {/* File viewer — height animates */}
+        <div
+          className="overflow-hidden bg-slate-900"
+          style={{
+            height: isExpanded ? '80vh' : '420px',
+            maxHeight: isExpanded ? '1200px' : '800px',
+            transition: 'height 0.4s ease, max-height 0.4s ease',
+          }}
+        >
+          {isPDF && (
+            <iframe
+              src={fileDataUrl!}
+              className="w-full h-full border-0"
+              title="Biometria original"
+            />
+          )}
+          {isImage && (
+            <div
+              className="w-full h-full overflow-y-auto flex items-start justify-center"
+              style={{ cursor: isExpanded ? 'zoom-out' : 'zoom-in' }}
+              onClick={onToggleExpand}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={fileDataUrl!}
+                className="w-full h-auto object-contain"
+                alt="Biometria original"
+              />
+            </div>
+          )}
+        </div>
+      </div>
     )
   }
 
@@ -458,6 +442,7 @@ export default function ValidatePage() {
     fileDataUrl,
   } = useBiometryStore()
   const [isConfirming, setIsConfirming] = useState(false)
+  const [isPanelExpanded, setIsPanelExpanded] = useState(false)
 
   if (!biometry || !meta) {
     return (
@@ -479,7 +464,13 @@ export default function ValidatePage() {
     (['K1', 'K2', 'AL', 'ACD'] as const).some((f) => fieldStatus(f, biometry.OE[f]) === 'warn')
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div
+      className="mx-auto space-y-5"
+      style={{
+        maxWidth: isPanelExpanded ? '1800px' : '1024px',
+        transition: 'max-width 0.4s ease',
+      }}
+    >
 
       {/* ── Dark header panel ─────────────────────────────────────────────── */}
       <div className="bg-[#1B2236] rounded-2xl overflow-hidden">
@@ -543,7 +534,15 @@ export default function ValidatePage() {
       )}
 
       {/* ── 3-column layout ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)] gap-4 items-start">
+      <div
+        className="grid grid-cols-1 gap-4 items-start"
+        style={{
+          gridTemplateColumns: isPanelExpanded
+            ? '1fr 2.5fr 1fr'
+            : 'minmax(0,1fr) 260px minmax(0,1fr)',
+          transition: 'grid-template-columns 0.4s ease',
+        }}
+      >
 
         {/* OD */}
         <EyeColumn
@@ -558,7 +557,13 @@ export default function ValidatePage() {
 
         {/* Sticky center panel */}
         <div className="sticky top-36">
-          <ExamViewerPanel fileDataUrl={fileDataUrl} meta={meta} biometry={biometry} />
+          <ExamViewerPanel
+            fileDataUrl={fileDataUrl}
+            meta={meta}
+            biometry={biometry}
+            isExpanded={isPanelExpanded}
+            onToggleExpand={() => setIsPanelExpanded((v) => !v)}
+          />
         </div>
 
         {/* OE */}
