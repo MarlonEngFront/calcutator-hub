@@ -174,3 +174,71 @@ export const CALCULATOR_LENS_CATALOGS: Record<string, CalcLens[]> = {
 export function getLensesForCalculator(calcId: string): CalcLens[] {
   return CALCULATOR_LENS_CATALOGS[calcId] ?? []
 }
+
+// ── Global IOL Catalog — unified lens picker ──────────────────────────────────
+// Master list across all calculators. Primary: BRASCRS (A-constants + Haigis).
+// Supplemented with TECNIS-only and APACRS-only entries.
+export const GLOBAL_IOL_CATALOG: CalcLens[] = [
+  // ─ Alcon ─
+  { code: 'Alcon SN60WF',  label: 'Acrysof IQ (SN60WF)',          family: 'SN60WF',            manufacturer: 'Alcon',         aConstant: 119.0, haigisA0: -1.284, haigisA1: 0.236, haigisA2: 0.217 },
+  { code: 'Alcon SA60AT',  label: 'Acrysof (SA60AT)',              family: 'SA60AT',            manufacturer: 'Alcon',         aConstant: 118.7, haigisA0: -1.140, haigisA1: 0.248, haigisA2: 0.259 },
+  { code: 'Alcon SND1T',   label: 'PanOptix (SND1T)',              family: 'SND1T',             manufacturer: 'Alcon',         aConstant: 119.1, haigisA0: -1.198, haigisA1: 0.231, haigisA2: 0.228 },
+  { code: 'Alcon DFT015',  label: 'Vivity (DFT015)',               family: 'DFT015',            manufacturer: 'Alcon',         aConstant: 119.3, haigisA0: -1.258, haigisA1: 0.226, haigisA2: 0.219 },
+  { code: 'Alcon SN6ATx',  label: 'Acrysof IQ Toric (SN6ATx)',    family: 'SN6ATx',            manufacturer: 'Alcon',         aConstant: 118.4 },
+  { code: 'Alcon SND1Tx',  label: 'PanOptix Toric (SND1Tx)',       family: 'SND1Tx',            manufacturer: 'Alcon',         aConstant: 119.1 },
+  { code: 'Alcon DFTx',    label: 'Vivity Toric (DFTx)',           family: 'DFTx',              manufacturer: 'Alcon',         aConstant: 119.3 },
+  // ─ J&J Vision ─
+  { code: 'J&J ZCB00',     label: 'TECNIS 1-Piece (ZCB00)',        family: 'ZCB00',             manufacturer: 'J&J Vision',    aConstant: 119.1, haigisA0: -1.100, haigisA1: 0.240, haigisA2: 0.213 },
+  { code: 'J&J ZXR00',     label: 'TECNIS Symfony (ZXR00)',        family: 'ZXR00',             manufacturer: 'J&J Vision',    aConstant: 119.1, haigisA0: -1.073, haigisA1: 0.226, haigisA2: 0.216 },
+  { code: 'J&J ZLB00',     label: 'TECNIS Synergy (ZLB00)',        family: 'ZLB00',             manufacturer: 'J&J Vision',    aConstant: 119.2, haigisA0: -1.160, haigisA1: 0.235, haigisA2: 0.225 },
+  { code: 'J&J DIU',       label: 'TECNIS Eyhance™ (DIU)',         family: 'DIU',               manufacturer: 'J&J Vision',    aConstant: 119.1 },
+  { code: 'J&J ZCU',       label: 'TECNIS Toric II (ZCU)',         family: 'ZCU',               manufacturer: 'J&J Vision',    aConstant: 119.1 },
+  { code: 'J&J DRT',       label: 'TECNIS Odyssey™ (DRT)',         family: 'DRT',               manufacturer: 'J&J Vision',    aConstant: 119.0 },
+  { code: 'J&J ZXW',       label: 'TECNIS Symfony OptiBlue™ (ZXW)',family: 'ZXW',               manufacturer: 'J&J Vision',    aConstant: 119.1 },
+  { code: 'J&J ZKU',       label: 'TECNIS Multifocal +2.75D (ZKU)',family: 'ZKU',               manufacturer: 'J&J Vision',    aConstant: 119.1 },
+  // ─ Bausch & Lomb ─
+  { code: 'B&L LI61AO',    label: 'LI61AO',                        family: 'LI61AO',            manufacturer: 'Bausch & Lomb', aConstant: 118.0, haigisA0: -0.956, haigisA1: 0.245, haigisA2: 0.174 },
+  { code: 'B&L MX60',      label: 'enVista (MX60)',                family: 'MX60',              manufacturer: 'Bausch & Lomb', aConstant: 118.5, haigisA0: -1.350, haigisA1: 0.277, haigisA2: 0.190 },
+  { code: 'Bausch & Lomb MX60T', label: 'enVista Toric (MX60T)',   family: 'MX60T',             manufacturer: 'Bausch & Lomb', aConstant: 118.5 },
+  // ─ Hoya ─
+  { code: 'Hoya iSert 251', label: 'iSert 251 / PY-60AD',          family: 'iSert 251',         manufacturer: 'Hoya',          aConstant: 118.8, haigisA0: -0.940, haigisA1: 0.229, haigisA2: 0.216 },
+  { code: 'Hoya XY-1',      label: 'XY-1 (iSert 250)',             family: 'XY-1',              manufacturer: 'Hoya',          aConstant: 118.0, haigisA0: -0.940, haigisA1: 0.229, haigisA2: 0.216 },
+  { code: 'Hoya iSert 351', label: 'iSert 351',                    family: 'iSert 351',         manufacturer: 'Hoya',          aConstant: 119.2 },
+  // ─ Carl Zeiss ─
+  { code: 'Zeiss CT LUCIA 601P',     label: 'CT LUCIA 601P',       family: 'CT LUCIA 601P',     manufacturer: 'Carl Zeiss',    aConstant: 118.9, haigisA0: -1.320, haigisA1: 0.262, haigisA2: 0.189 },
+  { code: 'Zeiss AT LISA tri 839MP', label: 'AT LISA tri 839MP',   family: 'AT LISA tri 839MP', manufacturer: 'Carl Zeiss',    aConstant: 118.8, haigisA0: -1.240, haigisA1: 0.256, haigisA2: 0.188 },
+  // ─ Rayner ─
+  { code: 'Rayner RayOne 620H', label: 'RayOne 620H',              family: 'RayOne 620H',       manufacturer: 'Rayner',        aConstant: 119.1, haigisA0: -1.220, haigisA1: 0.249, haigisA2: 0.192 },
+  { code: 'Rayner RayOne EMV',  label: 'RayOne EMV',               family: 'RayOne EMV',        manufacturer: 'Rayner',        aConstant: 119.0 },
+]
+
+/** Ordered list of manufacturers in catalog (preserving first-occurrence order). */
+export function getManufacturers(): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const l of GLOBAL_IOL_CATALOG) {
+    if (!seen.has(l.manufacturer)) {
+      seen.add(l.manufacturer)
+      result.push(l.manufacturer)
+    }
+  }
+  return result
+}
+
+export function getLensesByManufacturer(manufacturer: string): CalcLens[] {
+  return GLOBAL_IOL_CATALOG.filter((l) => l.manufacturer === manufacturer)
+}
+
+/**
+ * Find the best matching lens from a per-calculator catalog for a globally-selected IOL.
+ * Tries: (1) exact code match, (2) same family + manufacturer.
+ * Returns null if no match — caller should fall back to global lens constants.
+ */
+export function matchLensToCalc(calcId: string, globalLens: CalcLens): CalcLens | null {
+  const catalog = CALCULATOR_LENS_CATALOGS[calcId] ?? []
+  return (
+    catalog.find((l) => l.code === globalLens.code) ??
+    catalog.find((l) => l.family === globalLens.family && l.manufacturer === globalLens.manufacturer) ??
+    null
+  )
+}

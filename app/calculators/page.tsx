@@ -4,7 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore, type ParsedBiometry, type SurgeryParams } from '@/app/stores/biometry-store'
 import { IOL_CATALOG } from '@/app/lib/iol-catalog'
-import { getLensesForCalculator, type CalcLens } from '@/app/lib/calculator-lens-catalogs'
+import {
+  getManufacturers,
+  getLensesByManufacturer,
+  matchLensToCalc,
+  type CalcLens,
+} from '@/app/lib/calculator-lens-catalogs'
 
 /** pACD = 0.5663 × A − 61.70 (ULIB regression) */
 function aConstantToPACD(a: number) {
@@ -75,62 +80,153 @@ const CALCULATORS = [
   },
 ]
 
-// ─── Per-calculator Lens Selector ───────────────────────────────────
-interface CalcLensSelectorProps {
-  calcId: string
-  calcName: string
-  selected: CalcLens | null
-  onChange: (lens: CalcLens) => void
+// ─── Lens Picker Panel ────────────────────────────────────────────────────────
+interface LensPickerPanelProps {
+  selectedLenses: CalcLens[]
+  onChange: (lenses: CalcLens[]) => void
 }
 
-function CalcLensSelector({ calcId, calcName, selected, onChange }: CalcLensSelectorProps) {
-  const lenses = getLensesForCalculator(calcId)
-  if (lenses.length === 0) return null
+function LensPickerPanel({ selectedLenses, onChange }: LensPickerPanelProps) {
+  const [activeMfr, setActiveMfr] = useState<string>('')
+  const manufacturers = getManufacturers()
+  const lensesForMfr = activeMfr ? getLensesByManufacturer(activeMfr) : []
+
+  const toggle = (lens: CalcLens) => {
+    const idx = selectedLenses.findIndex((l) => l.code === lens.code)
+    if (idx >= 0) {
+      onChange(selectedLenses.filter((_, i) => i !== idx))
+    } else if (selectedLenses.length < 3) {
+      onChange([...selectedLenses, lens])
+    }
+  }
 
   return (
-    <div className="space-y-1">
-      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-        {calcName}
-      </label>
-      <select
-        value={selected?.code ?? ''}
-        onChange={(e) => {
-          const lens = lenses.find((l) => l.code === e.target.value)
-          if (lens) onChange(lens)
-        }}
-        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 bg-white"
-      >
-        <option value="" disabled>Selecione a lente...</option>
-        {lenses.map((l) => (
-          <option key={l.code} value={l.code}>
-            {l.label}
-          </option>
-        ))}
-      </select>
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100">
+        <h3 className="font-semibold text-gray-900">1. Lentes para calcular</h3>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Selecione o fabricante → escolha até 3 LIOs para comparar
+        </p>
+      </div>
+
+      {/* Selected lens chips */}
+      {selectedLenses.length > 0 && (
+        <div className="px-6 pt-4 flex flex-wrap gap-2">
+          {selectedLenses.map((lens, i) => (
+            <span
+              key={lens.code}
+              className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5 text-sm"
+            >
+              <span className="text-blue-400 font-bold text-xs">{i + 1}</span>
+              <span className="font-semibold text-blue-800">{lens.family}</span>
+              <span className="text-blue-500 text-xs">{lens.manufacturer}</span>
+              {lens.aConstant != null && (
+                <span className="text-blue-400 font-mono text-xs">A={lens.aConstant}</span>
+              )}
+              <button
+                onClick={() => toggle(lens)}
+                className="text-blue-300 hover:text-red-500 ml-0.5 leading-none font-bold transition-colors"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {selectedLenses.length < 3 && (
+            <span className="inline-flex items-center border border-dashed border-slate-300 rounded-full px-3 py-1.5 text-xs text-slate-400">
+              + até {3 - selectedLenses.length} mais
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="p-6 space-y-4">
+        {/* Manufacturer pills */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Fabricante</p>
+          <div className="flex flex-wrap gap-2">
+            {manufacturers.map((mfr) => (
+              <button
+                key={mfr}
+                onClick={() => setActiveMfr(mfr === activeMfr ? '' : mfr)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                  activeMfr === mfr
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white text-gray-700 border-slate-200 hover:border-blue-300 hover:text-blue-700'
+                }`}
+              >
+                {mfr}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* IOL grid for selected manufacturer */}
+        {activeMfr && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              LIO — {activeMfr}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {lensesForMfr.map((lens) => {
+                const isSelected = selectedLenses.some((l) => l.code === lens.code)
+                const disabled = !isSelected && selectedLenses.length >= 3
+                return (
+                  <button
+                    key={lens.code}
+                    onClick={() => toggle(lens)}
+                    disabled={disabled}
+                    className={`text-left px-4 py-3 rounded-xl border text-sm transition-all ${
+                      isSelected
+                        ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200 shadow-sm'
+                        : disabled
+                        ? 'border-slate-100 bg-slate-50 opacity-40 cursor-not-allowed'
+                        : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm cursor-pointer'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900 text-sm">{lens.family}</div>
+                    <div className="text-xs text-gray-500 mt-0.5 truncate">{lens.label}</div>
+                    {lens.aConstant != null && (
+                      <div className="text-xs font-mono text-blue-600 mt-1.5">A = {lens.aConstant.toFixed(1)}</div>
+                    )}
+                    {isSelected && (
+                      <div className="text-xs text-blue-600 font-semibold mt-1">✓ Selecionada</div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {selectedLenses.length === 0 && !activeMfr && (
+          <p className="text-sm text-gray-400 text-center py-3">
+            Selecione um fabricante acima para ver as lentes disponíveis
+          </p>
+        )}
+      </div>
     </div>
   )
 }
 
-// ─── ESCRS Manual Reference Panel ───────────────────────────────────
+// ─── ESCRS Manual Reference Panel ────────────────────────────────────────────
 interface EscrsManualPanelProps {
   biometry: ParsedBiometry
   surgeryParams: SurgeryParams
-  aConstant: number
+  lenses: CalcLens[]
 }
 
-function EscrsManualPanel({ biometry, surgeryParams, aConstant }: EscrsManualPanelProps) {
-  const pACD = aConstantToPACD(aConstant)
+function EscrsManualPanel({ biometry, surgeryParams, lenses }: EscrsManualPanelProps) {
   const rows = [
-    { label: 'AL', od: biometry.OD.AL, oe: biometry.OE.AL, unit: 'mm' },
-    { label: 'ACD', od: biometry.OD.ACD, oe: biometry.OE.ACD, unit: 'mm' },
-    { label: 'LT', od: biometry.OD.LT, oe: biometry.OE.LT, unit: 'mm' },
-    { label: 'WTW', od: biometry.OD.WTW, oe: biometry.OE.WTW, unit: 'mm' },
-    { label: 'CCT', od: biometry.OD.CCT, oe: biometry.OE.CCT, unit: 'µm' },
-    { label: 'K1', od: biometry.OD.K1, oe: biometry.OE.K1, unit: 'D' },
-    { label: 'K2', od: biometry.OD.K2, oe: biometry.OE.K2, unit: 'D' },
-    { label: 'Alvo refrativo', od: surgeryParams.OD.refTarget, oe: surgeryParams.OE.refTarget, unit: 'D' },
+    { label: 'AL',             od: biometry.OD.AL,               oe: biometry.OE.AL,               unit: 'mm' },
+    { label: 'ACD',            od: biometry.OD.ACD,              oe: biometry.OE.ACD,              unit: 'mm' },
+    { label: 'LT',             od: biometry.OD.LT,               oe: biometry.OE.LT,               unit: 'mm' },
+    { label: 'WTW',            od: biometry.OD.WTW,              oe: biometry.OE.WTW,              unit: 'mm' },
+    { label: 'CCT',            od: biometry.OD.CCT,              oe: biometry.OE.CCT,              unit: 'µm' },
+    { label: 'K1',             od: biometry.OD.K1,               oe: biometry.OE.K1,               unit: 'D' },
+    { label: 'K2',             od: biometry.OD.K2,               oe: biometry.OE.K2,               unit: 'D' },
+    { label: 'Alvo refrativo', od: surgeryParams.OD.refTarget,   oe: surgeryParams.OE.refTarget,   unit: 'D' },
   ]
-  const constants = [
+  const constNames = [
     'Barrett A-Constant', 'Cooke A-Constant', 'EVO A-Constant',
     'Hill-RBF A-Constant', 'Kane A-Constant', 'Pearl DGS A-Constant',
   ]
@@ -140,7 +236,9 @@ function EscrsManualPanel({ biometry, surgeryParams, aConstant }: EscrsManualPan
       <div className="px-6 py-4 border-b border-blue-200 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">Manual</span>
+            <span className="text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+              Manual
+            </span>
             <h3 className="font-semibold text-blue-900">ESCRS IOL Calculator</h3>
           </div>
           <p className="text-xs text-blue-700">
@@ -189,58 +287,161 @@ function EscrsManualPanel({ biometry, surgeryParams, aConstant }: EscrsManualPan
           </div>
         </div>
 
-        {/* Constants */}
-        <div>
-          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Constantes (OD e OE)</p>
-          <div className="bg-white rounded-xl border border-blue-100 overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
-                {constants.map((name) => (
-                  <tr key={name} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-medium text-gray-700">{name}</td>
-                    <td className="px-4 py-2 text-right font-mono font-bold text-blue-800">{aConstant.toFixed(2)}</td>
-                  </tr>
-                ))}
-                <tr className="hover:bg-slate-50 bg-blue-50">
-                  <td className="px-4 py-2 font-medium text-gray-700">Hoffer® pACD</td>
-                  <td className="px-4 py-2 text-right font-mono font-bold text-blue-800">{pACD.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
+        {/* Constants per selected lens */}
+        {lenses.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">
+              Constantes por LIO
+            </p>
+            {lenses.map((lens, i) => {
+              const a = lens.aConstant ?? 119.0
+              const pACD = aConstantToPACD(a)
+              return (
+                <div key={lens.code} className="mb-3 last:mb-0">
+                  <p className="text-xs font-semibold text-gray-600 mb-1">
+                    <span className="bg-blue-600 text-white rounded-full px-1.5 py-0.5 text-xs font-bold mr-1.5">
+                      {i + 1}
+                    </span>
+                    {lens.family} · {lens.manufacturer}
+                  </p>
+                  <div className="bg-white rounded-xl border border-blue-100 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-slate-100">
+                        {constNames.map((name) => (
+                          <tr key={name} className="hover:bg-slate-50">
+                            <td className="px-4 py-2 font-medium text-gray-700">{name}</td>
+                            <td className="px-4 py-2 text-right font-mono font-bold text-blue-800">
+                              {a.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="hover:bg-slate-50 bg-blue-50">
+                          <td className="px-4 py-2 font-medium text-gray-700">Hoffer® pACD</td>
+                          <td className="px-4 py-2 text-right font-mono font-bold text-blue-800">
+                            {pACD.toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p className="text-xs text-gray-400 px-4 py-1.5">
+                      pACD = 0.5663 × {a.toFixed(2)} − 61.70 = {pACD.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">pACD = 0.5663 × {aConstant.toFixed(2)} − 61.70 = {pACD.toFixed(2)}</p>
-        </div>
+        )}
       </div>
     </div>
   )
 }
 
-// ─── Surgery Params Panel ────────────────────────────────────────────
+// ─── Surgery Params Panel ─────────────────────────────────────────────────────
 function SurgeryPanel() {
-  const { surgeryParams, setSurgeryParams } = useBiometryStore()
+  const {
+    surgeryParams, setSurgeryParams,
+    surgicalPresets, activeSurgicalPreset,
+    setSurgicalPreset, selectSurgicalPreset, deleteSurgicalPreset,
+  } = useBiometryStore()
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [saveName, setSaveName] = useState('')
+
+  const presetNames = Object.keys(surgicalPresets)
+
+  const handleSave = () => {
+    const name = saveName.trim()
+    if (!name) return
+    setSurgicalPreset(name, surgeryParams)
+    setSaveName('')
+    setShowSaveInput(false)
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100">
-        <h3 className="font-semibold text-gray-900">3. Parâmetros Cirúrgicos</h3>
-        <p className="text-xs text-gray-500 mt-0.5">SE LIO e alvo refrativo por olho — obrigatório para TECNIS</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="font-semibold text-gray-900">2. Parâmetros Cirúrgicos</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              SE LIO e alvo refrativo por olho — obrigatório para TECNIS
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <select
+              value={activeSurgicalPreset}
+              onChange={(e) => selectSurgicalPreset(e.target.value)}
+              className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-blue-400 bg-white"
+            >
+              {presetNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowSaveInput(true)}
+              className="text-sm text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
+            >
+              Salvar como...
+            </button>
+            {presetNames.length > 1 && (
+              <button
+                onClick={() => deleteSurgicalPreset(activeSurgicalPreset)}
+                className="text-sm text-red-400 border border-red-200 rounded-lg px-2.5 py-1.5 hover:bg-red-50 transition-colors"
+                title="Excluir padrão atual"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
       </div>
+
+      {showSaveInput && (
+        <div className="px-6 py-3 bg-blue-50 border-b border-blue-200 flex items-center gap-2">
+          <input
+            autoFocus
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+            placeholder="Ex: Padrão Tórica, Padrão EDOF..."
+            className="flex-1 border border-blue-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-400 bg-white"
+          />
+          <button
+            onClick={handleSave}
+            disabled={!saveName.trim()}
+            className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 transition-colors"
+          >
+            Salvar
+          </button>
+          <button
+            onClick={() => { setShowSaveInput(false); setSaveName('') }}
+            className="text-gray-400 hover:text-gray-600 text-sm transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* SIA global */}
         <div className="sm:col-span-2 flex gap-4">
           <div className="flex-1">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">SIA (D)</label>
-            <input type="number" step="0.01" min="0" max="3"
+            <input
+              type="number" step="0.01" min="0" max="3"
               value={surgeryParams.SIA}
               onChange={(e) => setSurgeryParams({ SIA: parseFloat(e.target.value) || 0 })}
-              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400" />
+              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400"
+            />
           </div>
           <div className="flex-1">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Eixo SIA (°)</label>
-            <input type="number" step="1" min="0" max="180"
+            <input
+              type="number" step="1" min="0" max="180"
               value={surgeryParams.SIAAxis}
               onChange={(e) => setSurgeryParams({ SIAAxis: parseInt(e.target.value) || 0 })}
-              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400" />
+              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400"
+            />
           </div>
         </div>
 
@@ -249,17 +450,21 @@ function SurgeryPanel() {
           <div className="text-sm font-bold text-blue-700 border-b border-blue-100 pb-1">OD — Olho Direito</div>
           <div>
             <label className="text-xs font-medium text-gray-500">SE LIO estimado (D)</label>
-            <input type="number" step="0.5" min="0" max="50"
+            <input
+              type="number" step="0.5" min="0" max="50"
               value={surgeryParams.OD.seIOLPower}
               onChange={(e) => setSurgeryParams({ OD: { ...surgeryParams.OD, seIOLPower: parseFloat(e.target.value) || 0 } })}
-              className="mt-1 w-full border border-blue-200 bg-blue-50 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400 focus:bg-white" />
+              className="mt-1 w-full border border-blue-200 bg-blue-50 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400 focus:bg-white"
+            />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500">Alvo refrativo (D)</label>
-            <input type="number" step="0.25" min="-5" max="2"
+            <input
+              type="number" step="0.25" min="-5" max="2"
               value={surgeryParams.OD.refTarget}
               onChange={(e) => setSurgeryParams({ OD: { ...surgeryParams.OD, refTarget: parseFloat(e.target.value) || 0 } })}
-              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400" />
+              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400"
+            />
           </div>
         </div>
 
@@ -268,17 +473,21 @@ function SurgeryPanel() {
           <div className="text-sm font-bold text-indigo-700 border-b border-indigo-100 pb-1">OE — Olho Esquerdo</div>
           <div>
             <label className="text-xs font-medium text-gray-500">SE LIO estimado (D)</label>
-            <input type="number" step="0.5" min="0" max="50"
+            <input
+              type="number" step="0.5" min="0" max="50"
               value={surgeryParams.OE.seIOLPower}
               onChange={(e) => setSurgeryParams({ OE: { ...surgeryParams.OE, seIOLPower: parseFloat(e.target.value) || 0 } })}
-              className="mt-1 w-full border border-indigo-200 bg-indigo-50 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-indigo-400 focus:bg-white" />
+              className="mt-1 w-full border border-indigo-200 bg-indigo-50 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-indigo-400 focus:bg-white"
+            />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500">Alvo refrativo (D)</label>
-            <input type="number" step="0.25" min="-5" max="2"
+            <input
+              type="number" step="0.25" min="-5" max="2"
               value={surgeryParams.OE.refTarget}
               onChange={(e) => setSurgeryParams({ OE: { ...surgeryParams.OE, refTarget: parseFloat(e.target.value) || 0 } })}
-              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400" />
+              className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400"
+            />
           </div>
         </div>
       </div>
@@ -286,22 +495,24 @@ function SurgeryPanel() {
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CalculatorsPage() {
   const router = useRouter()
   const { biometry, meta, surgeryParams, setCalculationResults } = useBiometryStore()
+  const [selectedLenses, setSelectedLenses] = useState<CalcLens[]>([])
   const [selectedCalcs, setSelectedCalcs] = useState<Set<string>>(new Set())
   const [isCalculating, setIsCalculating] = useState(false)
   const [calcError, setCalcError] = useState<string | null>(null)
-  // Per-calculator lens overrides: calcId → CalcLens
-  const [lensOverrides, setLensOverrides] = useState<Record<string, CalcLens>>({})
 
   if (!biometry || !meta) {
     return (
       <div className="max-w-md mx-auto text-center py-20">
         <div className="text-6xl mb-4">📭</div>
         <h2 className="text-xl font-bold text-gray-800 mb-2">Nenhuma biometria carregada</h2>
-        <button onClick={() => router.push('/')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700">
+        <button
+          onClick={() => router.push('/')}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700"
+        >
           Ir para upload
         </button>
       </div>
@@ -309,6 +520,7 @@ export default function CalculatorsPage() {
   }
 
   const available = CALCULATORS.filter((c) => c.status === 'available')
+
   const toggle = (id: string) => {
     if (!available.find((c) => c.id === id)) return
     setSelectedCalcs((prev) => {
@@ -317,8 +529,8 @@ export default function CalculatorsPage() {
       return next
     })
   }
+
   const selectedAvailable = [...selectedCalcs].filter((id) => available.find((c) => c.id === id))
-  // Split: gateway (automated) vs manual (ESCRS etc.)
   const selectedGateway = selectedAvailable.filter((id) => {
     const calc = CALCULATORS.find((c) => c.id === id)
     return calc && !('mode' in calc && calc.mode === 'manual')
@@ -327,28 +539,45 @@ export default function CalculatorsPage() {
     const calc = CALCULATORS.find((c) => c.id === id)
     return calc && 'mode' in calc && calc.mode === 'manual'
   })
-  // Lens required only for gateway calcs
-  const allGatewayLensesSelected = selectedGateway.every((id) => lensOverrides[id] != null)
-  const allLensesSelected = selectedAvailable.every((id) => lensOverrides[id] != null)
-  const canCalculate = selectedGateway.length > 0 && allGatewayLensesSelected
+
+  const canCalculate = selectedLenses.length > 0 && selectedGateway.length > 0
 
   const handleCalculate = async () => {
     if (!canCalculate) return
     setIsCalculating(true)
     setCalcError(null)
 
-    // Derive base IOL from first selected calculator's lens override.
-    // Gateway adapters use lensOverrides[calcId] per-calc; base lens is fallback only.
-    const firstCalcLens = lensOverrides[selectedAvailable[0]]
+    const primaryLens = selectedLenses[0]
     const baseIol =
-      IOL_CATALOG.find((i) => i.manufacturerCode === firstCalcLens.code) ?? {
-        id: firstCalcLens.code,
-        model: firstCalcLens.family,
-        manufacturer: firstCalcLens.manufacturer,
-        manufacturerCode: firstCalcLens.code,
+      IOL_CATALOG.find((i) => i.manufacturerCode === primaryLens.code) ?? {
+        id: primaryLens.code,
+        model: primaryLens.family,
+        manufacturer: primaryLens.manufacturer,
+        manufacturerCode: primaryLens.code,
         type: 'toric' as const,
-        aConstant: 119.1,
+        aConstant: primaryLens.aConstant ?? 119.1,
       }
+
+    // Map primary lens → per-calc lens. Falls back to global lens constants if no catalog match.
+    const lensOverrides = Object.fromEntries(
+      selectedGateway.map((calcId) => {
+        const matched = matchLensToCalc(calcId, primaryLens) ?? primaryLens
+        return [
+          calcId,
+          {
+            id: matched.code,
+            brand: matched.manufacturer,
+            family: matched.family,
+            a_constant: matched.aConstant ?? 119.1,
+            toric_available: matched.haigisA0 == null,
+            code: matched.code,
+            ...(matched.haigisA0 != null
+              ? { haigisA0: matched.haigisA0, haigisA1: matched.haigisA1, haigisA2: matched.haigisA2 }
+              : {}),
+          },
+        ]
+      })
+    )
 
     try {
       const res = await fetch('/api/calculate', {
@@ -359,31 +588,14 @@ export default function CalculatorsPage() {
           biometry,
           iol: baseIol,
           surgeryParams,
-          lensOverrides: Object.fromEntries(
-            Object.entries(lensOverrides).map(([id, l]) => [
-              id,
-              {
-                id: l.code,
-                brand: l.manufacturer,
-                family: l.family,
-                a_constant: l.aConstant ?? 119.1,
-                toric_available: l.haigisA0 == null, // formula-based calcs are not toric
-                code: l.code,
-                ...(l.haigisA0 != null ? { haigisA0: l.haigisA0 } : {}),
-                ...(l.haigisA1 != null ? { haigisA1: l.haigisA1 } : {}),
-                ...(l.haigisA2 != null ? { haigisA2: l.haigisA2 } : {}),
-              },
-            ])
-          ),
+          lensOverrides,
           isDemoData: meta.filename === 'demo-biometry.json',
         }),
       })
 
       const data = await res.json()
-
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
 
-      // Normaliza bundle response → CalculationResult[]
       const results = Object.entries(data.results as Record<string, any>).map(([id, r]) => ({
         requestId: r.requestId,
         calculatorId: id,
@@ -405,7 +617,9 @@ export default function CalculatorsPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configurar Cálculo</h1>
-        <p className="text-gray-500 mt-1">Escolha as calculadoras, selecione a lente de cada uma e defina os parâmetros cirúrgicos</p>
+        <p className="text-gray-500 mt-1">
+          Selecione as lentes, configure os parâmetros cirúrgicos e escolha as calculadoras
+        </p>
       </div>
 
       {/* Biometry summary */}
@@ -421,36 +635,65 @@ export default function CalculatorsPage() {
               <div className="text-xs text-gray-400">{field} OD</div>
             </div>
           ))}
-          <button onClick={() => router.push('/validate')} className="ml-auto text-sm text-blue-600 hover:underline">← Editar</button>
+          <button
+            onClick={() => router.push('/validate')}
+            className="ml-auto text-sm text-blue-600 hover:underline"
+          >
+            ← Editar
+          </button>
         </div>
       </div>
 
-      {/* 1. Calculators */}
+      {/* 1. Lens picker */}
+      <LensPickerPanel selectedLenses={selectedLenses} onChange={setSelectedLenses} />
+
+      {/* 2. Surgery params */}
+      <SurgeryPanel />
+
+      {/* 3. Calculator selection */}
       <div>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          1. Calculadoras · {selectedAvailable.length} selecionada{selectedAvailable.length !== 1 ? 's' : ''}
+          3. Calculadoras · {selectedAvailable.length} selecionada{selectedAvailable.length !== 1 ? 's' : ''}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {CALCULATORS.map((calc) => {
             const isSelected = selectedCalcs.has(calc.id)
             const isAvailable = calc.status === 'available'
             return (
-              <button key={calc.id} onClick={() => toggle(calc.id)} disabled={!isAvailable}
+              <button
+                key={calc.id}
+                onClick={() => toggle(calc.id)}
+                disabled={!isAvailable}
                 className={`text-left rounded-2xl border p-5 transition-all ${
-                  !isAvailable ? 'border-slate-100 bg-slate-50 opacity-55 cursor-not-allowed' :
-                  isSelected ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200 shadow-md' :
-                  'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm cursor-pointer'
-                }`}>
+                  !isAvailable
+                    ? 'border-slate-100 bg-slate-50 opacity-55 cursor-not-allowed'
+                    : isSelected
+                    ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200 shadow-md'
+                    : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm cursor-pointer'
+                }`}
+              >
                 <div className="flex items-start justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-xl ${calc.logoBg} flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                  <div
+                    className={`w-10 h-10 rounded-xl ${calc.logoBg} flex items-center justify-center text-white text-xs font-bold shadow-sm`}
+                  >
                     {calc.logoText}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                      isAvailable ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'
-                    }`}>{isAvailable ? '✓ Disponível' : 'Em breve'}</span>
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                        isAvailable
+                          ? 'bg-green-50 text-green-700 border-green-200'
+                          : 'bg-slate-100 text-slate-500 border-slate-200'
+                      }`}
+                    >
+                      {isAvailable ? '✓ Disponível' : 'Em breve'}
+                    </span>
                     {isAvailable && (
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
+                        }`}
+                      >
                         {isSelected && <span className="text-white text-xs leading-none">✓</span>}
                       </div>
                     )}
@@ -461,14 +704,22 @@ export default function CalculatorsPage() {
                 <p className="text-xs text-gray-500 leading-relaxed mb-3">{calc.description}</p>
                 <div className="flex flex-wrap gap-1 mb-2">
                   {calc.tags.map((tag) => (
-                    <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{tag}</span>
+                    <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                      {tag}
+                    </span>
                   ))}
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
                   {isAvailable && <span>⏱ {calc.time}</span>}
-                  <a href={calc.url} target="_blank" rel="noopener noreferrer"
+                  <a
+                    href={calc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-blue-500 hover:underline ml-auto">↗ Site</a>
+                    className="text-blue-500 hover:underline ml-auto"
+                  >
+                    ↗ Site
+                  </a>
                 </div>
               </button>
             )
@@ -476,42 +727,14 @@ export default function CalculatorsPage() {
         </div>
       </div>
 
-      {/* 2. Per-calculator lens picker — shown only when calculators are selected */}
-      {selectedAvailable.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-semibold text-gray-900">2. Lente por Calculadora</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Cada calculadora usa seu próprio catálogo de lentes</p>
-          </div>
-          <div className="p-6 space-y-4">
-            {selectedAvailable.map((calcId) => {
-              const calc = CALCULATORS.find((c) => c.id === calcId)
-              if (!calc) return null
-              return (
-                <CalcLensSelector
-                  key={calcId}
-                  calcId={calcId}
-                  calcName={calc.name}
-                  selected={lensOverrides[calcId] ?? null}
-                  onChange={(lens) => setLensOverrides((prev) => ({ ...prev, [calcId]: lens }))}
-                />
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* ESCRS manual panel */}
       {selectedManual.includes('escrs') && biometry && (
         <EscrsManualPanel
           biometry={biometry}
           surgeryParams={surgeryParams}
-          aConstant={lensOverrides['escrs']?.aConstant ?? 119.0}
+          lenses={selectedLenses}
         />
       )}
-
-      {/* 3. Surgery params */}
-      <SurgeryPanel />
 
       {/* Error */}
       {calcError && (
@@ -523,34 +746,46 @@ export default function CalculatorsPage() {
         </div>
       )}
 
-      {/* Hint — lens missing */}
-      {selectedAvailable.length > 0 && !allLensesSelected && (
+      {/* Hints */}
+      {selectedLenses.length === 0 && selectedAvailable.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
-          ⚠️ Selecione a lente para cada calculadora escolhida (passo 2).
+          ⚠️ Selecione ao menos uma lente no passo 1 para calcular.
         </div>
       )}
-
-      {/* Hint — only manual selected */}
       {selectedManual.length > 0 && selectedGateway.length === 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 text-sm text-blue-800">
-          ℹ️ ESCRS selecionado em modo manual — use o painel acima para preencher os valores no site. Adicione outra calculadora para usar o gateway automatizado.
+          ℹ️ ESCRS selecionado em modo manual — use o painel acima para preencher os valores no site.
+          Adicione outra calculadora para usar o gateway automatizado.
         </div>
       )}
 
       {/* Actions */}
       <div className="flex items-center gap-3 pt-2">
-        <button onClick={() => router.push('/validate')}
-          className="px-5 py-3 border border-slate-200 text-gray-600 rounded-xl font-medium hover:bg-slate-50 transition-colors">
+        <button
+          onClick={() => router.push('/validate')}
+          className="px-5 py-3 border border-slate-200 text-gray-600 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+        >
           ← Voltar
         </button>
-        <button disabled={!canCalculate || isCalculating} onClick={handleCalculate}
-          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors shadow-sm">
+        <button
+          disabled={!canCalculate || isCalculating}
+          onClick={handleCalculate}
+          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors shadow-sm"
+        >
           {isCalculating ? (
-            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Calculando via gateway...</>
-          ) : selectedAvailable.length === 0 ? 'Selecione ao menos uma calculadora (passo 1)' :
-            selectedGateway.length === 0 ? 'Nenhuma calculadora automática selecionada' :
-            !allGatewayLensesSelected ? 'Selecione a lente por calculadora (passo 2)' :
-            `🔬 Calcular · ${selectedGateway.length} calculadora${selectedGateway.length > 1 ? 's' : ''} via gateway →`}
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Calculando via gateway...
+            </>
+          ) : selectedLenses.length === 0 ? (
+            'Selecione ao menos uma lente (passo 1)'
+          ) : selectedAvailable.length === 0 ? (
+            'Selecione ao menos uma calculadora (passo 3)'
+          ) : selectedGateway.length === 0 ? (
+            'Nenhuma calculadora automática selecionada'
+          ) : (
+            `🔬 Calcular · ${selectedLenses.length} lente${selectedLenses.length > 1 ? 's' : ''} · ${selectedGateway.length} calculadora${selectedGateway.length > 1 ? 's' : ''} →`
+          )}
         </button>
       </div>
     </div>

@@ -81,6 +81,10 @@ interface BiometryStore {
   selectedIOL: IOL | null
   surgeryParams: SurgeryParams
   calculationResults: CalculationResult[]
+  /** Named surgical parameter presets — persisted */
+  surgicalPresets: Record<string, SurgeryParams>
+  /** Name of the currently active preset */
+  activeSurgicalPreset: string
 
   setBiometry: (b: ParsedBiometry, meta: BiometryMeta) => void
   clearBiometry: () => void
@@ -90,6 +94,12 @@ interface BiometryStore {
   setSurgeryParams: (params: Partial<SurgeryParams>) => void
   setCalculationResults: (results: CalculationResult[]) => void
   clearResults: () => void
+  /** Save current params as a named preset (or overwrite existing). */
+  setSurgicalPreset: (name: string, params: SurgeryParams) => void
+  /** Delete a named preset. Always keeps at least one preset. */
+  deleteSurgicalPreset: (name: string) => void
+  /** Load a named preset into surgeryParams. */
+  selectSurgicalPreset: (name: string) => void
 }
 
 const DEFAULT_SURGERY: SurgeryParams = {
@@ -97,6 +107,10 @@ const DEFAULT_SURGERY: SurgeryParams = {
   SIAAxis: 120,
   OD: { seIOLPower: 21.0, refTarget: 0 },
   OE: { seIOLPower: 21.0, refTarget: 0 },
+}
+
+const DEFAULT_PRESETS: Record<string, SurgeryParams> = {
+  'Padrão 1': DEFAULT_SURGERY,
 }
 
 export const useBiometryStore = create<BiometryStore>()(
@@ -107,6 +121,8 @@ export const useBiometryStore = create<BiometryStore>()(
       selectedIOL: null,
       surgeryParams: DEFAULT_SURGERY,
       calculationResults: [],
+      surgicalPresets: DEFAULT_PRESETS,
+      activeSurgicalPreset: 'Padrão 1',
 
       setBiometry: (biometry, meta) => set({ biometry, meta }),
 
@@ -143,6 +159,29 @@ export const useBiometryStore = create<BiometryStore>()(
       setCalculationResults: (results) => set({ calculationResults: results }),
 
       clearResults: () => set({ calculationResults: [] }),
+
+      setSurgicalPreset: (name, params) =>
+        set((state) => ({
+          surgicalPresets: { ...state.surgicalPresets, [name]: params },
+          activeSurgicalPreset: name,
+        })),
+
+      deleteSurgicalPreset: (name) =>
+        set((state) => {
+          const next = { ...state.surgicalPresets }
+          delete next[name]
+          if (Object.keys(next).length === 0) next['Padrão 1'] = DEFAULT_SURGERY
+          const nextActive =
+            state.activeSurgicalPreset === name ? Object.keys(next)[0] : state.activeSurgicalPreset
+          return { surgicalPresets: next, activeSurgicalPreset: nextActive }
+        }),
+
+      selectSurgicalPreset: (name) =>
+        set((state) => {
+          const preset = state.surgicalPresets[name]
+          if (!preset) return {}
+          return { activeSurgicalPreset: name, surgeryParams: preset }
+        }),
     }),
     {
       name: 'voiston-hub-biometry',
@@ -153,6 +192,8 @@ export const useBiometryStore = create<BiometryStore>()(
         meta: state.meta,
         selectedIOL: state.selectedIOL,
         surgeryParams: state.surgeryParams,
+        surgicalPresets: state.surgicalPresets,
+        activeSurgicalPreset: state.activeSurgicalPreset,
         // calculationResults intentionally excluded
       }),
     }
