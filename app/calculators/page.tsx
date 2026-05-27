@@ -10,7 +10,42 @@ import {
   matchLensToCalc,
   type CalcLens,
 } from '@/app/lib/calculator-lens-catalogs'
+import {
+  calculateSingle,
+  calculateBundle,
+  type GatewayEye,
+  type GatewayLens,
+} from '@/app/lib/gateway-client'
+import type { IOL } from '@/app/lib/iol-catalog'
 
+
+// ── Gateway helpers (client-side, same logic as former /api/calculate route) ──
+
+function buildEye(
+  eye: ParsedBiometry['OD'],
+  surgery: SurgeryParams,
+  eyeKey: 'OD' | 'OE',
+): GatewayEye {
+  const eyeSurgery = surgery[eyeKey]
+  return {
+    biometry: { AL: eye.AL, ACD: eye.ACD, LT: eye.LT ?? 4.5, WTW: eye.WTW, CCT: eye.CCT, method: 'custom_a' },
+    keratometry: { selected: 'anterior', K1: eye.K1, K2: eye.K2, K1Axis: eye.K1Axis, K2Axis: eye.K2Axis, Cyl: eye.Cyl, Axis: eye.Axis },
+    surgery: { SIA: surgery.SIA, SIAAxis: surgery.SIAAxis, refTarget: eyeSurgery.refTarget, incisionLocation: 180 },
+    calculatorPreferences: { seIOLPower: eyeSurgery.seIOLPower, kIndex: '1.3375', cylinderConvention: 'plus', includePCA: true },
+  }
+}
+
+function buildLens(iol: IOL): GatewayLens {
+  return {
+    id: iol.id,
+    brand: iol.manufacturer,
+    family: iol.model,
+    a_constant: iol.aConstant ?? 119.0,
+    toric_available: iol.type === 'toric' || iol.type === 'multifocal-toric',
+    code: iol.manufacturerCode,
+    classification: iol.type,
+  }
+}
 
 const CALCULATORS = [
   {
@@ -439,22 +474,32 @@ export default function CalculatorsPage() {
     )
 
     try {
-      const res = await fetch('/api/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          calculatorIds: selectedGateway,
-          biometry,
-          iol: baseIol,
-          surgeryParams,
-          lensOverrides,
-          isDemoData: meta.filename === 'demo-biometry.json',
-        }),
-      })
+      const requestId = `voiston-hub-${Date.now()}`
+      const lens = buildLens(baseIol)
+      const eyes = { OD: buildEye(biometry.OD, surgeryParams, 'OD'), OE: buildEye(biometry.OE, surgeryParams, 'OE') }
+      const base = {
+        requestId,
+        source: { app: 'calculator-hub', environment: 'unknown' as const },
+        patient: { isDemoData: meta.filename === 'demo-biometry.json' },
+        lens,
+        ...(Object.keys(lensOverrides).length > 0 ? { lensOverrides } : {}),
+        eyes,
+      }
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      let data
+      if (selectedGateway.length > 1) {
+        data = await calculateBundle({ ...base, calculators: selectedGateway.map((id) => ({ id })) })
+      } else {
+        const single = await calculateSingle({ ...base, calculator: { id: selectedGateway[0] } })
+        data = {
+          bundleId: requestId,
+          status: single.status,
+          results: { [selectedGateway[0]]: single },
+          audit: { executedAt: single.audit.executedAt, durationMs: 0, method: single.audit.method, notes: single.audit.notes },
+        }
+      }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const results = Object.entries(data.results as Record<string, any>).map(([id, r]) => ({
         requestId: r.requestId,
         calculatorId: id,
