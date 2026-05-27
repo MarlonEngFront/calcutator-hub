@@ -296,6 +296,7 @@ export function parseExamRelateds(
   if (!groupedMeasurements || !Array.isArray(groupedMeasurements)) {
     // Fallback 1: Try to extract from flat numeric values
     let flat = flattenNumericValues(obj)
+    console.log('[parseExamRelateds] Fallback 1 - flattenNumericValues found', Object.keys(flat).length, 'keys:', Object.keys(flat).slice(0, 5))
 
     // Fallback 2: Try to extract from Measurements array (newer API format)
     if (Object.keys(flat).length === 0) {
@@ -305,6 +306,8 @@ export function parseExamRelateds(
         DoubleValue?: number
         StringValue?: string
       }> | undefined
+
+      console.log('[parseExamRelateds] Fallback 2 - Measurements array has', Array.isArray(measurements) ? measurements.length : 0, 'items')
 
       if (Array.isArray(measurements) && measurements.length > 0) {
         for (const m of measurements) {
@@ -325,6 +328,7 @@ export function parseExamRelateds(
       return null
     }
 
+    console.log('[parseExamRelateds] Returning session with extracted data:', Object.keys(flat))
     return {
       OD: normalizeEyeData(flat),
       OE: normalizeEyeData(flat),
