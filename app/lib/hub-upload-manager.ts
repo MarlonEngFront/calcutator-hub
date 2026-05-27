@@ -1,15 +1,28 @@
 /**
- * HubUploadManager — orquestra upload de exame via rotas server-side do hub
- * O browser NÃO acessa a Voiston API diretamente — sem auth necessária.
+ * HubUploadManager — orquestra upload de exame chamando Voiston API diretamente
+ * (client-side, igual jjvisionpro). Sem server routes intermediárias.
  *
  * Fluxo:
- *   POST /api/exam/init    → obtém signed URL (server cria paciente + request)
- *   PUT  {signed URL}      → browser envia arquivo direto ao storage
- *   POST /api/exam/confirm → confirma recebimento
- *   GET  /api/exam/status  → polling até processamento concluir
- *   GET  /api/exam/parse   → busca relateds e parseia biometria
+ *   POST api.voiston.ai/api/Exam/newUploadRequest → signed URL
+ *   PUT  {signed URL}                             → envia arquivo ao storage
+ *   POST api.voiston.ai/api/ExamFile/ConfirmUpload
+ *   GET  api.voiston.ai/api/Exam/{id}             → polling status
+ *   GET  api.voiston.ai/api/Exam/{id}/Relateds    → busca medidas
+ *   parse no browser (parseExamRelateds)
  */
 
+import {
+  clientRequestUpload,
+  clientConfirmUpload,
+  clientGetExamStatus,
+  clientGetExamRelateds,
+  clientGetPatient,
+} from './voiston-client'
+import {
+  parseExamRelateds,
+  normalizeEyeData,
+  unwrapExamRelatedsPayload,
+} from './exam-relateds-parser'
 import type { ParsedExamSession } from './exam-relateds-parser'
 
 export type UploadStepId =
@@ -51,9 +64,16 @@ const STEP_DEFS: Array<Pick<UploadStep, 'id' | 'label'>> = [
   { id: 'parsing',    label: 'Extraindo medidas'   },
 ]
 
-const POLL_START_MS   = 3_000
-const POLL_MAX_MS     = 5 * 60_000
-const POLL_MAX_DELAY  = 15_000
+const POLL_START_MS  = 3_000
+const POLL_MAX_MS    = 5 * 60_000
+const POLL_MAX_DELAY = 15_000
+
+const GENDER_MAP: Record<string, string> = {
+  '0': 'Masculino', '1': 'Feminino', '100': 'Outro',
+  'm': 'Masculino', 'f': 'Feminino',
+  'male': 'Masculino', 'female': 'Feminino',
+  'masculino': 'Masculino', 'feminino': 'Feminino',
+}
 
 export class HubUploadManager {
   private file: File
@@ -116,69 +136,110 @@ export class HubUploadManager {
   public async start() {
     const { signal } = this.abort
     try {
-      // 1. Init — server cria paciente e obtém signed URL
+      // 1. Solicita signed URL diretamente da Voiston API
       this.set('init', { status: 'loading', progress: 40 })
-      const initRes = await fetch('/api/exam/init', {
-        method: 'POST',
-        signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename:    this.file.name,
-          contentType: this.file.type || 'application/octet-stream',
-        }),
-      })
-      if (!initRes.ok) {
-        const err = await initRes.json().catch(() => ({}))
-        throw new Error(err.error ?? `Init falhou (${initRes.status})`)
-      }
-      const { signedUrl, signedHeaders, examId, examFileId } = await initRes.json()
+      const upload = await clientRequestUpload(
+        this.file.name,
+        this.file.type || 'application/octet-stream',
+      )
+      const { ExamId: examId, ExamFileId: examFileId, SignedUrl: signedUrl, Headers: signedHeaders } = upload
       this.state.examId = examId
       this.set('init', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 2. Upload direto ao storage (PUT para signed URL)
+      // 2. Upload direto ao storage (PUT signed URL)
       this.set('upload', { status: 'loading', progress: 10 })
       const putRes = await fetch(signedUrl, {
         method: 'PUT',
         body: this.file,
         signal,
-        headers: { ...signedHeaders, 'Content-Type': this.file.type || 'application/octet-stream' },
+        headers: {
+          ...signedHeaders,
+          'Content-Type': this.file.type || 'application/octet-stream',
+        },
       })
       if (!putRes.ok) throw new Error(`Upload ao storage falhou: ${putRes.statusText}`)
       this.set('upload', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 3. Confirmar upload
+      // 3. Confirma upload
       this.set('confirm', { status: 'loading', progress: 50 })
-      const confirmRes = await fetch('/api/exam/confirm', {
-        method: 'POST',
-        signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ examId, examFileId, fileSize: this.file.size }),
-      })
-      if (!confirmRes.ok) {
-        const err = await confirmRes.json().catch(() => ({}))
-        throw new Error(err.error ?? 'Confirmação falhou')
-      }
+      await clientConfirmUpload(examFileId, examId, this.file.size)
       this.set('confirm', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 4. Polling de status (browser chama nossa rota, que chama Voiston server-side)
+      // 4. Polling de status
       this.set('processing', { status: 'loading', progress: 5, message: 'Aguardando processamento...' })
       await this.poll(examId, signal)
       this.set('processing', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 5. Parse — server busca relateds e normaliza
+      // 5. Busca relateds + parse no browser
       this.set('parsing', { status: 'loading', progress: 40, message: 'Buscando medidas biométricas...' })
-      const parseRes = await fetch(`/api/exam/parse?examId=${examId}`, { signal })
-      if (!parseRes.ok) {
-        const err = await parseRes.json().catch(() => ({}))
-        throw new Error(err.error ?? 'Erro ao parsear biometria')
-      }
-      const session: ParsedExamSession = await parseRes.json()
-      this.set('parsing', { status: 'success', progress: 100 })
+      const [relateds, fullExam] = await Promise.all([
+        clientGetExamRelateds(examId),
+        clientGetExamStatus(examId),
+      ])
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const examObj = (fullExam as any)?.Exam || fullExam
+      const examTypeId: number | undefined = examObj?.ExamType?.ID
+      const examTypeName: string | undefined =
+        typeof examObj?.ExamType?.Name === 'string' ? examObj.ExamType.Name.trim() : undefined
+
+      const relatedsRoot = unwrapExamRelatedsPayload(relateds)
+      let session = parseExamRelateds(relatedsRoot, examId, examTypeId)
+
+      if (!session) {
+        session = {
+          OD: normalizeEyeData({}),
+          OE: normalizeEyeData({}),
+          examId,
+          examTypeId,
+        }
+      }
+
+      // Enriquece metadados do paciente
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const relData = relatedsRoot as any
+      let name: string | undefined = examObj?.PatientName
+      let gender: unknown = undefined
+      let birthDate: string | undefined = examObj?.PossiblePatientDOB
+
+      const embeddedPatient = examObj?.Patient || relData?.Patient
+      if (embeddedPatient) {
+        if (!name) name = embeddedPatient.Name
+        if (embeddedPatient.Gender != null) gender = embeddedPatient.Gender
+        if (!birthDate) birthDate = embeddedPatient.Birthday || embeddedPatient.BirthDate
+      }
+
+      const resolvedPatientId = examObj?.PatientID || embeddedPatient?.ID
+      if (resolvedPatientId) {
+        try {
+          const pData = await clientGetPatient(resolvedPatientId) as Record<string, unknown>
+          const pName = pData?.Name as string | undefined
+          if (pName && !pName.toLowerCase().startsWith('paciente hub')) {
+            if (!name) name = pName
+          }
+          if (gender == null && pData?.Gender != null) gender = pData.Gender
+          if (!birthDate) birthDate = pData?.Birthday as string || pData?.BirthDate as string
+        } catch { /* noop */ }
+      }
+
+      if (typeof name === 'string' && name.toLowerCase().startsWith('paciente hub')) name = undefined
+
+      let genderLabel: string | undefined
+      if (gender != null && String(gender).trim()) {
+        genderLabel = GENDER_MAP[String(gender).toLowerCase().trim()]
+      }
+
+      if (name || genderLabel || birthDate) {
+        session.patientMetadata = { name, gender: genderLabel, birthDate }
+      }
+      if (examTypeName) session.examTypeName = examTypeName
+      if (typeof examTypeId === 'number') session.examTypeId = examTypeId
+
+      this.set('parsing', { status: 'success', progress: 100 })
       this.state.isComplete = true
       this.state.overallProgress = 100
       this.emit()
@@ -206,10 +267,8 @@ export class HubUploadManager {
         }
         count++
         try {
-          const res  = await fetch(`/api/exam/status?examId=${examId}`, { signal })
-          const data = await res.json()
-
-          if (!res.ok) throw new Error(data.error ?? `Status HTTP ${res.status}`)
+          const data = await clientGetExamStatus(examId)
+          const status = data?.Status ?? 0
 
           const pct = Math.min(10 + Math.floor((count / 20) * 80), 90)
           this.set('processing', {
@@ -218,9 +277,18 @@ export class HubUploadManager {
             message: count > 5 ? 'Consolidando medidas...' : 'Processando OCR...',
           })
 
-          if (data.done)          { resolve(); return }
-          if (data.unrecognized)  { reject(new Error('Biometria não reconhecida. Verifique se o arquivo é um exame suportado.')); return }
-          if (data.error)         { reject(new Error('Erro durante processamento do arquivo')); return }
+          // Status 99 ou 100 = concluído
+          if (status === 99 || status === 100) { resolve(); return }
+          // Status 11 = arquivo não reconhecido
+          if (status === 11) {
+            reject(new Error('Biometria não reconhecida. Verifique se o arquivo é um exame suportado.'))
+            return
+          }
+          // Status >= 90 (exceto 99/100) = erro
+          if (status >= 90) {
+            reject(new Error('Erro durante processamento do arquivo'))
+            return
+          }
 
           const delay = Math.min(POLL_START_MS * Math.pow(1.4, count - 1), POLL_MAX_DELAY)
           setTimeout(check, delay)
