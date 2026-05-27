@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
+import { sessionEyeFromParsed } from '@/app/lib/biometry-view'
+import type { ParsedExamSession } from '@/app/lib/exam-relateds-parser'
 import { HubUploadManager } from '@/app/lib/hub-upload-manager'
 import type { HubUploadState } from '@/app/lib/hub-upload-manager'
 import { UploadProgressModal } from '@/app/components/UploadProgressModal'
@@ -34,6 +36,43 @@ export default function UploadPage() {
   const router = useRouter()
   const setBiometry = useBiometryStore((s) => s.setBiometry)
   const setFileDataUrl = useBiometryStore((s) => s.setFileDataUrl)
+
+  const applyParsedSession = useCallback(
+    (session: ParsedExamSession, file: File) => {
+      const biometry = {
+        OD: sessionEyeFromParsed(session.OD),
+        OE: sessionEyeFromParsed(session.OE),
+      }
+      const surgery = {
+        SIA: session.OD.SIA ?? 0.1,
+        SIAAxis: session.OD.SIAAxis ?? 120,
+        OD: { seIOLPower: 21.0, refTarget: session.OD.refTarget ?? 0 },
+        OE: { seIOLPower: 21.0, refTarget: session.OE.refTarget ?? 0 },
+      }
+      setBiometry(
+        biometry,
+        {
+          filename: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          uploadedAt: new Date().toISOString(),
+          equipment: session.examTypeName,
+          patientName: session.patientMetadata?.name,
+          gender: session.patientMetadata?.gender,
+          examType: session.examTypeName,
+          examId: session.examId,
+          examTypeId: session.examTypeId,
+        },
+        {
+          kReadings: session.kReadings,
+          rawMeasurements: session.rawMeasurements,
+          relatedMeasurementTypeNames: session.relatedMeasurementTypeNames,
+        },
+        surgery,
+      )
+    },
+    [setBiometry],
+  )
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadState, setUploadState] = useState<HubUploadState | null>(null)
@@ -63,49 +102,7 @@ export default function UploadPage() {
         file,
         onProgress: (state) => setUploadState({ ...state }),
         onComplete: (session) => {
-          setBiometry(
-            {
-              OD: {
-                K1: session.OD.K1,
-                K2: session.OD.K2,
-                K1Axis: session.OD.K1Axis,
-                K2Axis: session.OD.K2Axis,
-                Cyl: session.OD.Cyl,
-                Axis: session.OD.Axis,
-                AL: session.OD.AL,
-                ACD: session.OD.ACD,
-                WTW: session.OD.WTW,
-                LT: session.OD.LT,
-                CCT: session.OD.CCT,
-                refTarget: session.OD.refTarget,
-              },
-              OE: {
-                K1: session.OE.K1,
-                K2: session.OE.K2,
-                K1Axis: session.OE.K1Axis,
-                K2Axis: session.OE.K2Axis,
-                Cyl: session.OE.Cyl,
-                Axis: session.OE.Axis,
-                AL: session.OE.AL,
-                ACD: session.OE.ACD,
-                WTW: session.OE.WTW,
-                LT: session.OE.LT,
-                CCT: session.OE.CCT,
-                refTarget: session.OE.refTarget,
-              },
-            },
-            {
-              filename: file.name,
-              fileSize: file.size,
-              fileType: file.type,
-              uploadedAt: new Date().toISOString(),
-              equipment: session.examTypeName,
-              patientName: session.patientMetadata?.name,
-              gender: session.patientMetadata?.gender,
-              examType: session.examTypeName,
-            }
-          )
-          // Pequeno delay para ver "Concluído" no modal
+          applyParsedSession(session, file)
           setTimeout(() => {
             setShowModal(false)
             setUploadState(null)
@@ -122,7 +119,7 @@ export default function UploadPage() {
       setShowModal(true)
       await manager.start()
     },
-    [setBiometry, setFileDataUrl, router]
+    [applyParsedSession, setFileDataUrl, router]
   )
 
   const handleCancel = useCallback(() => {
@@ -240,19 +237,62 @@ export default function UploadPage() {
           </div>
           <button
             onClick={() => {
+              const demoSurgery = { SIA: 0.1, SIAAxis: 120, OD: { seIOLPower: 21, refTarget: 0 }, OE: { seIOLPower: 21, refTarget: 0 } }
+              const demoK = {
+                K1: 44.12, K2: 45.42, K1Axis: 178, K2Axis: 88, Cyl: 1.30, Axis: 88,
+              }
+              const demoK33 = {
+                K1: 44.12, K2: 45.61, K1Axis: 178, K2Axis: 88, Cyl: 1.49, Axis: 88,
+              }
               setBiometry(
                 {
-                  OD: { K1: 43.25, K2: 44.75, AL: 24.5, ACD: 3.2, WTW: 11.8, refTarget: 0 },
-                  OE: { K1: 43.0, K2: 44.5, AL: 24.3, ACD: 3.15, WTW: 11.8, refTarget: 0 },
+                  OD: {
+                    ...demoK,
+                    AL: 23.35, ACD: 3.42, LT: 4.20, CCT: 559, WTW: 12.0, refTarget: 0,
+                  },
+                  OE: {
+                    ...demoK,
+                    AL: 23.35, ACD: 3.42, LT: 4.20, CCT: 559, WTW: 12.0, refTarget: 0,
+                  },
                 },
                 {
-                  filename: 'demo-biometry.json',
+                  filename: 'demo-nidek-alscan.pdf',
                   fileSize: 0,
                   fileType: 'application/json',
                   uploadedAt: new Date().toISOString(),
                   patientName: 'João Demo',
-                  examType: 'standard',
-                }
+                  examType: 'Nidek AL-Scan',
+                  examTypeId: 86,
+                  equipment: 'Nidek AL-Scan',
+                },
+                {
+                  kReadings: {
+                    ref2dot4: { OD: demoK, OE: demoK },
+                    ref3dot3: { OD: demoK33, OE: demoK33 },
+                  },
+                  rawMeasurements: {
+                    OD: {
+                      'LS or Status': 'Phakic',
+                      'K Index': '1.3375',
+                      'review: Mean K': '44,77',
+                      K1_2dot4: '44,12',
+                      K2_2dot4: '45,42',
+                      K1_3dot3: '44,12',
+                      K2_3dot3: '45,61',
+                    },
+                    OE: {
+                      'LS or Status': 'Phakic',
+                      'K Index': '1.3375',
+                      'review: Mean K': '44,77',
+                      K1_2dot4: '44,12',
+                      K2_2dot4: '45,42',
+                      K1_3dot3: '44,12',
+                      K2_3dot3: '45,61',
+                    },
+                  },
+                  relatedMeasurementTypeNames: ['k1', 'k2', 'k1_2dot4', 'k2_2dot4', 'k1_3dot3', 'k2_3dot3'],
+                },
+                demoSurgery,
               )
               router.push('/validate')
             }}

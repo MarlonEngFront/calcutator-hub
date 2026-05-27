@@ -202,6 +202,75 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
   }
 }
 
+/** Desembrulha payload Relateds (axios .data, Exam.*, etc.) antes do parse. */
+export function unwrapExamRelatedsPayload(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return {}
+  const obj = data as Record<string, unknown>
+  if (Array.isArray(obj.GroupedMeasurement)) return obj
+
+  const nested = [obj.data, obj.Data, obj.Result, obj.result, obj.Exam]
+  for (const candidate of nested) {
+    if (!candidate || typeof candidate !== 'object') continue
+    const inner = candidate as Record<string, unknown>
+    if (Array.isArray(inner.GroupedMeasurement)) {
+      return {
+        ...inner,
+        Patient: inner.Patient ?? obj.Patient,
+        Measurements: inner.Measurements ?? obj.Measurements,
+      }
+    }
+  }
+  return obj
+}
+
+function normCyl(
+  cyl: number | undefined,
+  axis: number | undefined,
+): { Cyl: number | undefined; Axis: number | undefined } {
+  if (cyl == null) return { Cyl: undefined, Axis: axis }
+  if (cyl > 0) return { Cyl: -cyl, Axis: axis != null ? (axis + 90) % 180 : undefined }
+  return { Cyl: cyl, Axis: axis }
+}
+
+function normalizeKeratometryKey(key: string): string {
+  return key
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/(\d+)[.,](\d+)/g, '$1dot$2')
+    .replace(/[_\s-]+/g, '')
+}
+
+function hasNumericKey(side: ExtractedSide, key: string): boolean {
+  const target = normalizeKeratometryKey(key)
+  return Object.keys(side.numeric).some((k) => normalizeKeratometryKey(k) === target)
+}
+
+function getNumeric(side: ExtractedSide, key: string): number | undefined {
+  const target = normalizeKeratometryKey(key)
+  for (const [k, v] of Object.entries(side.numeric)) {
+    if (normalizeKeratometryKey(k) === target) return v
+  }
+  return undefined
+}
+
+function firstNumeric(side: ExtractedSide, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const v = getNumeric(side, key)
+    if (v != null && Number.isFinite(v)) return v
+  }
+  return undefined
+}
+
+function hasKeratometryDiameter(side: ExtractedSide, which: 'k1' | 'k2', mm: '2dot4' | '3dot3'): boolean {
+  if (hasNumericKey(side, `${which}_${mm}`)) return true
+  const target = `${which}${mm}`
+  return Object.keys(side.numeric).some((k) => {
+    const n = normalizeKeratometryKey(k)
+    return n === target || (n.startsWith(which) && n.includes(mm))
+  })
+}
+
 // ── parseExamRelateds ─────────────────────────────────────────────────────────
 // Portado exato de jjvisionpro — Side 2 = OD, Side 1 = OE
 
@@ -225,6 +294,7 @@ export function parseExamRelateds(
   }> | undefined
 
   if (!groupedMeasurements || !Array.isArray(groupedMeasurements)) {
+    // Fallback 1: Try to extract from flat numeric values
     const flat = flattenNumericValues(obj)
     if (Object.keys(flat).length > 0) {
       return {
@@ -234,6 +304,34 @@ export function parseExamRelateds(
         examTypeId: typeof examTypeId === 'number' ? examTypeId : undefined,
       }
     }
+
+    // Fallback 2: Try to extract from Measurements array (newer API format)
+    const measurements = (obj as any)?.Measurements as Array<{
+      Side?: number
+      Type?: { DisplayName?: string; Name?: string }
+      DoubleValue?: number
+      StringValue?: string
+    }> | undefined
+
+    if (Array.isArray(measurements) && measurements.length > 0) {
+      const byName: Record<string, number> = {}
+      for (const m of measurements) {
+        if (m.DoubleValue != null && Number.isFinite(m.DoubleValue)) {
+          const displayName = m.Type?.DisplayName || m.Type?.Name
+          if (displayName) byName[displayName] = m.DoubleValue
+        }
+      }
+      if (Object.keys(byName).length > 0) {
+        console.log('[parseExamRelateds] Using Measurements fallback, extracted keys:', Object.keys(byName))
+        return {
+          OD: normalizeEyeData(byName),
+          OE: normalizeEyeData(byName),
+          examId,
+          examTypeId: typeof examTypeId === 'number' ? examTypeId : undefined,
+        }
+      }
+    }
+
     return null
   }
 
@@ -249,70 +347,59 @@ export function parseExamRelateds(
     .filter(Boolean)
   const relatedMeasurementTypeNames = Array.from(new Set(allTypeNames))
 
-  function hasKey(side: ExtractedSide, key: string): boolean {
-    const lc = key.toLowerCase().trim()
-    return Object.keys(side.numeric).some((k) => k.toLowerCase().trim() === lc)
-  }
-  function getNum(side: ExtractedSide, key: string): number | undefined {
-    const lc = key.toLowerCase().trim()
-    for (const [k, v] of Object.entries(side.numeric)) {
-      if (k.toLowerCase().trim() === lc) return v
-    }
-    return undefined
-  }
-  function firstNum(side: ExtractedSide, keys: string[]): number | undefined {
-    for (const key of keys) {
-      const v = getNum(side, key)
-      if (v != null && Number.isFinite(v)) return v
-    }
-    return undefined
-  }
-
   // Leituras alternativas Nidek 2.4mm / 3.3mm
   const kReadings: ParsedExamSession['kReadings'] = {}
   if (
-    hasKey(odExtracted, 'K1_2dot4') || hasKey(odExtracted, 'K2_2dot4') ||
-    hasKey(oeExtracted, 'K1_2dot4') || hasKey(oeExtracted, 'K2_2dot4')
+    hasKeratometryDiameter(odExtracted, 'k1', '2dot4') || hasKeratometryDiameter(odExtracted, 'k2', '2dot4') ||
+    hasKeratometryDiameter(oeExtracted, 'k1', '2dot4') || hasKeratometryDiameter(oeExtracted, 'k2', '2dot4')
   ) {
     kReadings.ref2dot4 = {
       OD: {
-        K1: getNum(odExtracted, 'K1_2dot4'),
-        K2: getNum(odExtracted, 'K2_2dot4'),
-        K1Axis: firstNum(odExtracted, ['K1Axis_2dot4', 'Axis_K1_2dot4', 'K1_axis_2dot4']),
-        K2Axis: firstNum(odExtracted, ['K2Axis_2dot4', 'Axis_K2_2dot4', 'K2_axis_2dot4']),
-        Cyl: firstNum(odExtracted, ['Cyl_2dot4', 'CYL_2dot4', 'Astigmatism_2dot4']),
-        Axis: firstNum(odExtracted, ['Axis_2dot4', 'CylAxis_2dot4']),
+        K1: getNumeric(odExtracted, 'K1_2dot4'),
+        K2: getNumeric(odExtracted, 'K2_2dot4'),
+        K1Axis: firstNumeric(odExtracted, ['K1Axis_2dot4', 'Axis_K1_2dot4', 'K1_axis_2dot4', 'AxisK1_2dot4']),
+        K2Axis: firstNumeric(odExtracted, ['K2Axis_2dot4', 'Axis_K2_2dot4', 'K2_axis_2dot4', 'AxisK2_2dot4']),
+        ...normCyl(
+          firstNumeric(odExtracted, ['Cyl_2dot4', 'CYL_2dot4', 'Astigmatism_2dot4', 'Astig_2dot4']),
+          firstNumeric(odExtracted, ['Axis_2dot4', 'CylAxis_2dot4', 'AstigmatismAxis_2dot4']),
+        ),
       },
       OE: {
-        K1: getNum(oeExtracted, 'K1_2dot4'),
-        K2: getNum(oeExtracted, 'K2_2dot4'),
-        K1Axis: firstNum(oeExtracted, ['K1Axis_2dot4', 'Axis_K1_2dot4', 'K1_axis_2dot4']),
-        K2Axis: firstNum(oeExtracted, ['K2Axis_2dot4', 'Axis_K2_2dot4', 'K2_axis_2dot4']),
-        Cyl: firstNum(oeExtracted, ['Cyl_2dot4', 'CYL_2dot4', 'Astigmatism_2dot4']),
-        Axis: firstNum(oeExtracted, ['Axis_2dot4', 'CylAxis_2dot4']),
+        K1: getNumeric(oeExtracted, 'K1_2dot4'),
+        K2: getNumeric(oeExtracted, 'K2_2dot4'),
+        K1Axis: firstNumeric(oeExtracted, ['K1Axis_2dot4', 'Axis_K1_2dot4', 'K1_axis_2dot4', 'AxisK1_2dot4']),
+        K2Axis: firstNumeric(oeExtracted, ['K2Axis_2dot4', 'Axis_K2_2dot4', 'K2_axis_2dot4', 'AxisK2_2dot4']),
+        ...normCyl(
+          firstNumeric(oeExtracted, ['Cyl_2dot4', 'CYL_2dot4', 'Astigmatism_2dot4', 'Astig_2dot4']),
+          firstNumeric(oeExtracted, ['Axis_2dot4', 'CylAxis_2dot4', 'AstigmatismAxis_2dot4']),
+        ),
       },
     }
   }
   if (
-    hasKey(odExtracted, 'K1_3dot3') || hasKey(odExtracted, 'K2_3dot3') ||
-    hasKey(oeExtracted, 'K1_3dot3') || hasKey(oeExtracted, 'K2_3dot3')
+    hasKeratometryDiameter(odExtracted, 'k1', '3dot3') || hasKeratometryDiameter(odExtracted, 'k2', '3dot3') ||
+    hasKeratometryDiameter(oeExtracted, 'k1', '3dot3') || hasKeratometryDiameter(oeExtracted, 'k2', '3dot3')
   ) {
     kReadings.ref3dot3 = {
       OD: {
-        K1: getNum(odExtracted, 'K1_3dot3'),
-        K2: getNum(odExtracted, 'K2_3dot3'),
-        K1Axis: firstNum(odExtracted, ['K1Axis_3dot3', 'Axis_K1_3dot3']),
-        K2Axis: firstNum(odExtracted, ['K2Axis_3dot3', 'Axis_K2_3dot3']),
-        Cyl: firstNum(odExtracted, ['Cyl_3dot3', 'CYL_3dot3']),
-        Axis: firstNum(odExtracted, ['Axis_3dot3', 'CylAxis_3dot3']),
+        K1: getNumeric(odExtracted, 'K1_3dot3'),
+        K2: getNumeric(odExtracted, 'K2_3dot3'),
+        K1Axis: firstNumeric(odExtracted, ['K1Axis_3dot3', 'Axis_K1_3dot3', 'K1_axis_3dot3', 'AxisK1_3dot3']),
+        K2Axis: firstNumeric(odExtracted, ['K2Axis_3dot3', 'Axis_K2_3dot3', 'K2_axis_3dot3', 'AxisK2_3dot3']),
+        ...normCyl(
+          firstNumeric(odExtracted, ['Cyl_3dot3', 'CYL_3dot3', 'Astigmatism_3dot3', 'Astig_3dot3']),
+          firstNumeric(odExtracted, ['Axis_3dot3', 'CylAxis_3dot3', 'AstigmatismAxis_3dot3']),
+        ),
       },
       OE: {
-        K1: getNum(oeExtracted, 'K1_3dot3'),
-        K2: getNum(oeExtracted, 'K2_3dot3'),
-        K1Axis: firstNum(oeExtracted, ['K1Axis_3dot3', 'Axis_K1_3dot3']),
-        K2Axis: firstNum(oeExtracted, ['K2Axis_3dot3', 'Axis_K2_3dot3']),
-        Cyl: firstNum(oeExtracted, ['Cyl_3dot3', 'CYL_3dot3']),
-        Axis: firstNum(oeExtracted, ['Axis_3dot3', 'CylAxis_3dot3']),
+        K1: getNumeric(oeExtracted, 'K1_3dot3'),
+        K2: getNumeric(oeExtracted, 'K2_3dot3'),
+        K1Axis: firstNumeric(oeExtracted, ['K1Axis_3dot3', 'Axis_K1_3dot3', 'K1_axis_3dot3', 'AxisK1_3dot3']),
+        K2Axis: firstNumeric(oeExtracted, ['K2Axis_3dot3', 'Axis_K2_3dot3', 'K2_axis_3dot3', 'AxisK2_3dot3']),
+        ...normCyl(
+          firstNumeric(oeExtracted, ['Cyl_3dot3', 'CYL_3dot3', 'Astigmatism_3dot3', 'Astig_3dot3']),
+          firstNumeric(oeExtracted, ['Axis_3dot3', 'CylAxis_3dot3', 'AstigmatismAxis_3dot3']),
+        ),
       },
     }
   }

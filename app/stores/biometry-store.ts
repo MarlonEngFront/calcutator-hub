@@ -2,35 +2,40 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { IOL } from '@/app/lib/iol-catalog'
 
+export interface ParsedEye {
+  AL: number
+  K1: number
+  K2: number
+  K1Axis?: number
+  K2Axis?: number
+  TK1?: number
+  TK2?: number
+  ACD: number
+  WTW: number
+  CCT?: number
+  Cyl?: number
+  Axis?: number
+  LT?: number
+  refTarget?: number
+}
+
 export interface ParsedBiometry {
-  OD: {
-    AL: number
-    K1: number
-    K2: number
-    K1Axis?: number
-    K2Axis?: number
-    ACD: number
-    WTW: number
-    CCT?: number
-    Cyl?: number
-    Axis?: number
-    LT?: number
-    refTarget?: number
-  }
-  OE: {
-    AL: number
-    K1: number
-    K2: number
-    K1Axis?: number
-    K2Axis?: number
-    ACD: number
-    WTW: number
-    CCT?: number
-    Cyl?: number
-    Axis?: number
-    LT?: number
-    refTarget?: number
-  }
+  OD: ParsedEye
+  OE: ParsedEye
+}
+
+export type KeratometryReading = {
+  K1?: number
+  K2?: number
+  K1Axis?: number
+  K2Axis?: number
+  Cyl?: number
+  Axis?: number
+}
+
+export type KeratometryReadings = {
+  ref2dot4?: { OD?: KeratometryReading; OE?: KeratometryReading }
+  ref3dot3?: { OD?: KeratometryReading; OE?: KeratometryReading }
 }
 
 export interface BiometryMeta {
@@ -42,7 +47,8 @@ export interface BiometryMeta {
   gender?: string
   equipment?: string
   examType?: string
-  examId?: number        // ID do exame na API Voiston
+  examId?: number
+  examTypeId?: number
 }
 
 export interface SurgeryParams {
@@ -76,33 +82,46 @@ export interface CalculationResult {
   error?: string
 }
 
+export interface BiometrySessionExtras {
+  originalBiometry?: ParsedBiometry
+  kReadings?: KeratometryReadings
+  rawMeasurements?: { OD: Record<string, string>; OE: Record<string, string> }
+  relatedMeasurementTypeNames?: string[]
+}
+
 interface BiometryStore {
   biometry: ParsedBiometry | null
+  originalBiometry: ParsedBiometry | null
   meta: BiometryMeta | null
+  kReadings: KeratometryReadings | null
+  rawMeasurements: { OD: Record<string, string>; OE: Record<string, string> } | null
+  relatedMeasurementTypeNames: string[]
   selectedIOL: IOL | null
   surgeryParams: SurgeryParams
+  originalSurgeryParams: SurgeryParams
   calculationResults: CalculationResult[]
-  /** Base64 data URL of the original exam file — kept in memory only (not persisted) */
   fileDataUrl: string | null
-  /** Named surgical parameter presets — persisted */
   surgicalPresets: Record<string, SurgeryParams>
-  /** Name of the currently active preset */
   activeSurgicalPreset: string
 
-  setBiometry: (b: ParsedBiometry, meta: BiometryMeta) => void
+  setBiometry: (
+    b: ParsedBiometry,
+    meta: BiometryMeta,
+    extras?: BiometrySessionExtras,
+    surgery?: SurgeryParams,
+  ) => void
   clearBiometry: () => void
-  updateODField: (field: keyof ParsedBiometry['OD'], value: number) => void
-  updateOEField: (field: keyof ParsedBiometry['OE'], value: number) => void
+  updateODField: (field: keyof ParsedEye, value: number) => void
+  updateOEField: (field: keyof ParsedEye, value: number) => void
+  setODEye: (eye: ParsedEye) => void
+  setOEEye: (eye: ParsedEye) => void
   setSelectedIOL: (iol: IOL | null) => void
   setSurgeryParams: (params: Partial<SurgeryParams>) => void
   setCalculationResults: (results: CalculationResult[]) => void
   clearResults: () => void
   setFileDataUrl: (url: string | null) => void
-  /** Save current params as a named preset (or overwrite existing). */
   setSurgicalPreset: (name: string, params: SurgeryParams) => void
-  /** Delete a named preset. Always keeps at least one preset. */
   deleteSurgicalPreset: (name: string) => void
-  /** Load a named preset into surgeryParams. */
   selectSurgicalPreset: (name: string) => void
 }
 
@@ -121,24 +140,45 @@ export const useBiometryStore = create<BiometryStore>()(
   persist(
     (set) => ({
       biometry: null,
+      originalBiometry: null,
       meta: null,
+      kReadings: null,
+      rawMeasurements: null,
+      relatedMeasurementTypeNames: [],
       selectedIOL: null,
       surgeryParams: DEFAULT_SURGERY,
+      originalSurgeryParams: DEFAULT_SURGERY,
       calculationResults: [],
       fileDataUrl: null,
       surgicalPresets: DEFAULT_PRESETS,
       activeSurgicalPreset: 'Padrão 1',
 
-      setBiometry: (biometry, meta) => set({ biometry, meta }),
+      setBiometry: (biometry, meta, extras, surgery) =>
+        set({
+          biometry,
+          meta,
+          originalBiometry: extras?.originalBiometry ?? structuredClone(biometry),
+          kReadings: extras?.kReadings ?? null,
+          rawMeasurements: extras?.rawMeasurements ?? null,
+          relatedMeasurementTypeNames: extras?.relatedMeasurementTypeNames ?? [],
+          ...(surgery
+            ? { surgeryParams: surgery, originalSurgeryParams: structuredClone(surgery) }
+            : {}),
+        }),
 
       clearBiometry: () =>
         set({
           biometry: null,
+          originalBiometry: null,
           meta: null,
+          kReadings: null,
+          rawMeasurements: null,
+          relatedMeasurementTypeNames: [],
           selectedIOL: null,
           calculationResults: [],
           fileDataUrl: null,
           surgeryParams: DEFAULT_SURGERY,
+          originalSurgeryParams: DEFAULT_SURGERY,
         }),
 
       updateODField: (field, value) =>
@@ -153,6 +193,16 @@ export const useBiometryStore = create<BiometryStore>()(
           biometry: state.biometry
             ? { ...state.biometry, OE: { ...state.biometry.OE, [field]: value } }
             : null,
+        })),
+
+      setODEye: (eye) =>
+        set((state) => ({
+          biometry: state.biometry ? { ...state.biometry, OD: eye } : null,
+        })),
+
+      setOEEye: (eye) =>
+        set((state) => ({
+          biometry: state.biometry ? { ...state.biometry, OE: eye } : null,
         })),
 
       setSelectedIOL: (iol) => set({ selectedIOL: iol }),
@@ -192,17 +242,20 @@ export const useBiometryStore = create<BiometryStore>()(
         }),
     }),
     {
-      name: 'voiston-hub-biometry',
+      name: 'voiston-hub-biometry-v2',
       storage: typeof window !== 'undefined' ? createJSONStorage(() => localStorage) : undefined,
-      // Exclude calculationResults — base64 screenshots can be MBs, crash hydration
       partialize: (state) => ({
         biometry: state.biometry,
+        originalBiometry: state.originalBiometry,
         meta: state.meta,
+        kReadings: state.kReadings,
+        rawMeasurements: state.rawMeasurements,
+        relatedMeasurementTypeNames: state.relatedMeasurementTypeNames,
         selectedIOL: state.selectedIOL,
         surgeryParams: state.surgeryParams,
+        originalSurgeryParams: state.originalSurgeryParams,
         surgicalPresets: state.surgicalPresets,
         activeSurgicalPreset: state.activeSurgicalPreset,
-        // calculationResults intentionally excluded
       }),
     }
   )

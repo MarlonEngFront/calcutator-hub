@@ -6,7 +6,109 @@
   --color-success: #16a34a;
   --color-warning: #ea580c;
   --color-error: #dc2626;
+  /* Medical Premium tokens */
+  --color-teal: #4db6ac;
+  --color-od: #f29121;
+  --color-oe: #71ba66;
+  --color-card-bg: #475361;
+  --color-card-darker: #394149;
 }
+
+/* Medical Premium — input biométrico */
+.input-biometric {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  font-family: var(--font-barlow, 'Barlow', sans-serif);
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.input-biometric::-webkit-outer-spin-button,
+.input-biometric::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-biometric:focus {
+  border-color: #4db6ac;
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px rgba(77, 182, 172, 0.15);
+}
+.input-biometric.warn {
+  border-color: rgba(242, 145, 33, 0.55);
+}
+
+/* Hub validate — inputs em card branco */
+.input-biometric--light {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+}
+.input-biometric--light:focus {
+  border-color: #4db6ac;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(77, 182, 172, 0.15);
+}
+.input-biometric--light.warn {
+  border-color: rgba(242, 145, 33, 0.65);
+}
+
+.btn-med-secondary--light {
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.btn-med-secondary--light:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+/* Medical Premium — botões */
+.btn-med-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.75rem;
+  background: #4db6ac;
+  color: #ffffff;
+  font-family: var(--font-barlow, 'Barlow', sans-serif);
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-med-primary:hover { background: #3da098; }
+.btn-med-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+
+.btn-med-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  background: transparent;
+  color: #ffffff;
+  font-family: var(--font-barlow, 'Barlow', sans-serif);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-med-secondary:hover { border-color: rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.06); }
+
+/* Animações */
+@keyframes spin-med {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-med { animation: spin-med 1s linear infinite; }
 
 html {
   scroll-behavior: smooth;

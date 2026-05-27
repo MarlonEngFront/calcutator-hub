@@ -96,7 +96,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main
+        className={
+          pathname.startsWith('/validate')
+            ? 'flex-1 w-full max-w-[1800px] mx-auto px-4 sm:px-6 py-8'
+            : 'flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8'
+        }
+      >
         {children}
       </main>
 

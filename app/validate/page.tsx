@@ -5,11 +5,27 @@ import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { ParsedBiometry, BiometryMeta, SurgeryParams } from '@/app/stores/biometry-store'
 
-// ─── Range helpers ─────────────────────────────────────────────────────────────
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+const CARD_BG  = '#475361'
+const TEAL     = '#4db6ac'
+const EYE_COLOR = { OD: '#f29121', OE: '#71ba66' } as const
+
+// ─── Range / decimal config ────────────────────────────────────────────────────
 const RANGES: Record<string, [number, number]> = {
   K1: [36, 52], K2: [36, 52], AL: [18, 34], ACD: [1.5, 5],
   LT: [2, 7], WTW: [10, 14], CCT: [400, 700], Cyl: [0, 10],
 }
+const DECIMALS: Record<string, number> = {
+  AL: 2, K1: 2, K2: 2, K1Axis: 0, K2Axis: 0,
+  ACD: 2, LT: 2, CCT: 0, WTW: 2, Cyl: 2, Axis: 0,
+  SIA: 2, SIAAxis: 0, refTarget: 2,
+}
+const FIELD_REF: Record<string, string> = {
+  AL: '18–34 mm', K1: '36–52 D', K2: '36–52 D',
+  ACD: '1.5–5 mm', LT: '2–7 mm', CCT: '400–700 µm',
+  WTW: '10–14 mm', Cyl: '0–10 D',
+}
+
 function fieldStatus(field: string, v?: number): 'ok' | 'warn' | 'neutral' {
   if (v == null || !Number.isFinite(v)) return 'neutral'
   const r = RANGES[field]
@@ -17,284 +33,297 @@ function fieldStatus(field: string, v?: number): 'ok' | 'warn' | 'neutral' {
   return v >= r[0] && v <= r[1] ? 'ok' : 'warn'
 }
 
-// ─── Eye SVG icon ──────────────────────────────────────────────────────────────
-function EyeIcon({ color = '#6b7280', size = 17 }: { color?: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.7"
-      strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
+function toFixed(val: number | undefined, field: string): string {
+  if (val == null || !Number.isFinite(val)) return ''
+  return val.toFixed(DECIMALS[field] ?? 2)
 }
 
-// ─── Check / Warn badge ────────────────────────────────────────────────────────
-function CheckBadge({ status }: { status: 'ok' | 'warn' | 'neutral' }) {
-  if (status === 'ok')
-    return (
-      <span className="shrink-0 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-          <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+// ─── AnatomicalGuide ───────────────────────────────────────────────────────────
+function AnatomicalGuide({ side }: { side: 'OD' | 'OE' }) {
+  const isOE = side === 'OE'
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: isOE ? 'row-reverse' : 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '0.85rem',
+      opacity: 0.6,
+      padding: '0.7rem 0.5rem 0.3rem',
+    }}>
+      <div style={{ width: 52, height: 34, flexShrink: 0 }}>
+        <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 30C10 30 30 10 50 10C70 10 90 30 90 30C90 30 70 50 50 50C30 50 10 30 10 30Z"
+            stroke="white" strokeWidth="2" />
+          <circle cx="50" cy="30" r="15" stroke="white" strokeWidth="2" />
+          <circle cx="50" cy="30" r="7" fill="white" />
         </svg>
+      </div>
+      <div style={{ width: 16, height: 34, transform: isOE ? 'rotateY(180deg)' : 'none' }}>
+        <svg viewBox="0 0 40 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 10C10 10 35 30 25 50C15 70 5 70 5 70"
+            stroke="white" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      </div>
+      <span style={{
+        fontSize: '0.67rem', fontWeight: 700,
+        color: EYE_COLOR[side], textTransform: 'uppercase', letterSpacing: '0.1em',
+      }}>
+        {side === 'OD' ? 'Olho Direito' : 'Olho Esquerdo'}
       </span>
-    )
-  if (status === 'warn')
-    return (
-      <span className="shrink-0 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center">
-        <span className="text-white font-bold leading-none" style={{ fontSize: 10 }}>!</span>
-      </span>
-    )
-  return <span className="shrink-0 w-4 h-4" />
+    </div>
+  )
 }
 
-// ─── Field row ─────────────────────────────────────────────────────────────────
-interface FieldRowProps {
-  label: string
-  value: number
-  unit: string
-  field?: string
-  step?: number
-  note?: string
+// ─── Status icon ───────────────────────────────────────────────────────────────
+function StatusIcon({ status }: { status: 'ok' | 'warn' | 'neutral' }) {
+  if (status === 'ok')   return <span style={{ fontSize: '0.7rem', fontWeight: 800, color: TEAL, width: 11, flexShrink: 0 }}>✓</span>
+  if (status === 'warn') return <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#f29121', width: 11, flexShrink: 0 }}>!</span>
+  return <span style={{ width: 11, flexShrink: 0, display: 'inline-block' }} />
+}
+
+// ─── Biometric input ───────────────────────────────────────────────────────────
+interface BioInputProps {
+  field: string
+  value: number | undefined
   onChange: (v: number) => void
+  showStatus?: boolean
+  compact?: boolean
 }
-function FieldRow({ label, value, unit, field, step = 0.01, note, onChange }: FieldRowProps) {
-  const status = field ? fieldStatus(field, value) : 'neutral'
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 last:border-0 hover:bg-blue-50/30 transition-colors group">
-      <div className="flex-1 min-w-0">
-        <span className="text-xs font-medium text-slate-600">{label}</span>
-        {note && <span className="block text-[11px] text-slate-400 leading-tight">{note}</span>}
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <input
-          type="number" step={step}
-          value={value ?? ''}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          className="w-[4.5rem] text-right font-mono font-semibold text-sm text-gray-900
-            bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
-            hover:border-blue-400 hover:bg-white/60
-            focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
-        />
-        <span className="text-[11px] text-slate-400 w-5 shrink-0">{unit}</span>
-      </div>
-      <CheckBadge status={status} />
-    </div>
-  )
-}
-
-// ─── K row (with optional axis line) ──────────────────────────────────────────
-function KRow({
-  label, value, axis, field, onChange, onAxisChange,
-}: {
-  label: string; value: number; axis?: number; field: string
-  onChange: (v: number) => void; onAxisChange?: (v: number) => void
-}) {
+function BioInput({ field, value, onChange, showStatus = true, compact }: BioInputProps) {
+  const d    = DECIMALS[field] ?? 2
+  const step = d === 0 ? 1 : 0.01
   const status = fieldStatus(field, value)
+  const display = toFixed(value, field)
+
   return (
-    <div className="px-4 py-2 border-b border-slate-100 last:border-0 hover:bg-blue-50/30 transition-colors">
-      <div className="flex items-center gap-2">
-        <span className="flex-1 text-xs font-medium text-slate-600">{label}</span>
-        <div className="flex items-center gap-1 shrink-0">
-          <input
-            type="number" step={0.01}
-            value={value ?? ''}
-            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            className="w-[4.5rem] text-right font-mono font-semibold text-sm text-gray-900
-              bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
-              hover:border-blue-400 hover:bg-white/60
-              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
-          />
-          <span className="text-[11px] text-slate-400 w-4 shrink-0">D</span>
-        </div>
-        <CheckBadge status={status} />
-      </div>
-      {axis != null && onAxisChange && (
-        <div className="flex items-center gap-1 mt-0.5 pr-5">
-          <span className="text-[11px] text-slate-400 flex-1 pl-0">eixo</span>
-          <input
-            type="number" step={1} min={0} max={180}
-            value={axis ?? ''}
-            onChange={(e) => onAxisChange(parseInt(e.target.value) || 0)}
-            className="w-10 text-right font-mono text-[11px] text-slate-500
-              bg-transparent border-0 border-b border-slate-200 outline-none rounded-none
-              hover:border-blue-400 hover:bg-white/60
-              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-0.5 transition-all"
-          />
-          <span className="text-[11px] text-slate-400">°</span>
-        </div>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
+      <input
+        type="number"
+        step={step}
+        value={display}
+        onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
+        className={`input-biometric ${status === 'warn' ? 'warn' : ''}`}
+        style={{
+          maxWidth: compact ? 62 : 76, minWidth: compact ? 52 : 62,
+          textAlign: 'center', fontSize: '0.9rem',
+          padding: '0.18rem 0.12rem', height: '1.9rem',
+        }}
+      />
+      {showStatus && <StatusIcon status={status} />}
     </div>
   )
 }
 
-// ─── Section header ────────────────────────────────────────────────────────────
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-200">
-      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
-    </div>
-  )
-}
-
-// ─── Campos adicionais ─────────────────────────────────────────────────────────
-function AdditionalFields({ eyeData, eye }: { eyeData: ParsedBiometry['OD']; eye: 'OD' | 'OE' }) {
-  const avgK = eyeData.K1 && eyeData.K2 ? (eyeData.K1 + eyeData.K2) / 2 : undefined
-  const items: Array<{ label: string; value?: number; unit: string; decimals?: number }> = [
-    { label: 'Axial Length',                value: eyeData.AL,     unit: 'mm',  decimals: 2 },
-    { label: 'K1 2.4',                      value: eyeData.K1,     unit: 'D',   decimals: 2 },
-    { label: 'K1 Axis 2.4',                 value: eyeData.K1Axis, unit: '°',   decimals: 0 },
-    { label: 'K2 2.4',                      value: eyeData.K2,     unit: 'D',   decimals: 2 },
-    { label: 'K2 Axis 2.4',                 value: eyeData.K2Axis, unit: '°',   decimals: 0 },
-    { label: 'Avgk 2.4',                    value: avgK,           unit: 'D',   decimals: 2 },
-    { label: 'CYL 2.4',                     value: eyeData.Cyl,    unit: 'D',   decimals: 2 },
-    { label: 'Anterior Chamber Depth',      value: eyeData.ACD,    unit: 'mm',  decimals: 2 },
-    { label: 'Cornea Central Thickness',    value: eyeData.CCT,    unit: 'µm',  decimals: 0 },
-    { label: 'Espessura Corneana Central',  value: eyeData.CCT,    unit: 'µm',  decimals: 0 },
-    { label: 'Cornea WTW',                  value: eyeData.WTW,    unit: 'mm',  decimals: 2 },
-  ].filter((f) => f.value != null && Number.isFinite(f.value))
-
-  return (
-    <div className="px-4 py-3 space-y-1.5">
-      {items.map((f) => (
-        <div key={f.label} className="flex items-center justify-between text-[11.5px]">
-          <span className="text-slate-500 font-medium">{f.label}</span>
-          <span className="font-mono font-semibold text-slate-700 tabular-nums">
-            {f.value != null
-              ? (f.decimals === 0 ? Math.round(f.value) : f.value.toFixed(f.decimals ?? 2))
-              : '—'}
-            {' '}
-            <span className="text-slate-400 font-normal">{f.unit}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Eye column ────────────────────────────────────────────────────────────────
-interface EyeColumnProps {
+// ─── Biometric table — one eye ─────────────────────────────────────────────────
+interface EyeTableProps {
   eye: 'OD' | 'OE'
   eyeData: ParsedBiometry['OD']
   surgeryParams: SurgeryParams
-  onFieldChange: (field: string, value: number) => void
-  onSurgeryChange: (params: Partial<SurgeryParams>) => void
+  onFieldChange: (f: string, v: number) => void
+  onSurgeryChange: (p: Partial<SurgeryParams>) => void
 }
 
-function EyeColumn({ eye, eyeData, surgeryParams, onFieldChange, onSurgeryChange }: EyeColumnProps) {
-  const [showAdditional, setShowAdditional] = useState(false)
-  const isOD = eye === 'OD'
-  const iconColor = isOD ? '#2563eb' : '#4338ca'
-  const labelCls = isOD ? 'text-blue-700' : 'text-indigo-700'
-  const borderCls = isOD ? 'border-blue-100' : 'border-indigo-100'
-  const eyeParams = isOD ? surgeryParams.OD : surgeryParams.OE
+function EyeTable({ eye, eyeData, surgeryParams, onFieldChange, onSurgeryChange }: EyeTableProps) {
+  const [showExtra, setShowExtra] = useState(false)
+  const eyeColor   = EYE_COLOR[eye]
+  const eyeLabel   = eye === 'OD' ? 'OD — Olho Direito' : 'OE — Olho Esquerdo'
+  const eyeParams  = eye === 'OD' ? surgeryParams.OD : surgeryParams.OE
+  const hasCyl     = eyeData.Cyl != null && Number.isFinite(eyeData.Cyl)
+
+  type RowDef = { label: string; ref?: string; node: React.ReactNode }
+
+  const rows: RowDef[] = [
+    {
+      label: 'AL',
+      ref: FIELD_REF.AL,
+      node: <BioInput field="AL" value={eyeData.AL} onChange={(v) => onFieldChange('AL', v)} />,
+    },
+    {
+      label: 'K1 / K2',
+      ref: FIELD_REF.K1,
+      node: (
+        <div style={{ display: 'flex', gap: '0.28rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          {(['K1', 'K2'] as const).map((k) => {
+            const axisKey = k === 'K1' ? 'K1Axis' : 'K2Axis'
+            const axisVal = eyeData[axisKey]
+            return (
+              <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.04rem' }}>
+                <BioInput field={k} value={eyeData[k]} onChange={(v) => onFieldChange(k, v)} />
+                {axisVal != null && (
+                  <span style={{ fontSize: '0.63rem', color: 'rgba(255,255,255,0.48)', fontWeight: 700 }}>
+                    eixo {Math.round(axisVal)}°
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ),
+    },
+    ...(hasCyl ? [{
+      label: 'CYL / Eixo',
+      ref: FIELD_REF.Cyl,
+      node: (
+        <div style={{ display: 'flex', gap: '0.28rem', alignItems: 'center', justifyContent: 'center' }}>
+          <BioInput field="Cyl" value={eyeData.Cyl} onChange={(v) => onFieldChange('Cyl', v)} />
+          {eyeData.Axis != null && (
+            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>
+              @ {Math.round(eyeData.Axis)}°
+            </span>
+          )}
+        </div>
+      ),
+    } as RowDef] : []),
+    {
+      label: 'ACD / LT',
+      ref: '1.5 / 2 mm',
+      node: (
+        <div style={{ display: 'flex', gap: '0.28rem', justifyContent: 'center' }}>
+          <BioInput field="ACD" value={eyeData.ACD} onChange={(v) => onFieldChange('ACD', v)} />
+          <BioInput field="LT" value={eyeData.LT ?? 4.2} onChange={(v) => onFieldChange('LT', v)} />
+        </div>
+      ),
+    },
+    {
+      label: 'CCT / WTW',
+      ref: '400 / 10',
+      node: (
+        <div style={{ display: 'flex', gap: '0.28rem', justifyContent: 'center' }}>
+          <BioInput field="CCT" value={eyeData.CCT ?? 540} onChange={(v) => onFieldChange('CCT', v)} />
+          <BioInput field="WTW" value={eyeData.WTW} onChange={(v) => onFieldChange('WTW', v)} />
+        </div>
+      ),
+    },
+    {
+      label: 'SIA',
+      node: (
+        <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', justifyContent: 'center' }}>
+          <BioInput field="SIA" value={surgeryParams.SIA}
+            onChange={(v) => onSurgeryChange({ SIA: v })} showStatus={false} compact />
+          <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>@</span>
+          <BioInput field="SIAAxis" value={surgeryParams.SIAAxis}
+            onChange={(v) => onSurgeryChange({ SIAAxis: v })} showStatus={false} compact />
+          <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)' }}>°</span>
+        </div>
+      ),
+    },
+    {
+      label: 'Ref. Alvo',
+      node: (
+        <BioInput field="refTarget" value={eyeParams.refTarget}
+          onChange={(v) => {
+            if (eye === 'OD') onSurgeryChange({ OD: { ...surgeryParams.OD, refTarget: v } })
+            else             onSurgeryChange({ OE: { ...surgeryParams.OE, refTarget: v } })
+          }} showStatus={false} />
+      ),
+    },
+  ]
+
+  // Campos adicionais (read-only computed)
+  const avgK = (eyeData.K1 && eyeData.K2) ? ((eyeData.K1 + eyeData.K2) / 2) : undefined
+  const extras = [
+    { label: 'AvgK',  value: avgK,         unit: 'D',  d: 2 },
+    { label: 'CYL',   value: eyeData.Cyl,  unit: 'D',  d: 2 },
+    { label: 'LT',    value: eyeData.LT,   unit: 'mm', d: 2 },
+    { label: 'CCT',   value: eyeData.CCT,  unit: 'µm', d: 0 },
+  ].filter((f) => f.value != null && Number.isFinite(f.value as number))
 
   return (
-    <div className={`rounded-2xl border ${borderCls} bg-white overflow-hidden`}>
-      {/* Eye header */}
-      <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center gap-2">
-        <EyeIcon color={iconColor} />
-        <span className={`text-[11px] font-bold uppercase tracking-widest ${labelCls}`}>
-          {isOD ? 'Olho Direito' : 'Olho Esquerdo'}
-        </span>
+    <div style={{
+      background: CARD_BG,
+      borderRadius: 12,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+      color: '#fff',
+      border: '1px solid rgba(255,255,255,0.05)',
+      fontFamily: 'var(--font-barlow, Barlow, sans-serif)',
+      overflow: 'hidden',
+    }}>
+      <AnatomicalGuide side={eye} />
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <thead>
+            <tr>
+              <th style={{
+                textAlign: 'left', padding: '0.35rem 0.75rem',
+                color: 'rgba(255,255,255,0.38)', fontWeight: 500,
+                fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>Parâmetro</th>
+              <th style={{
+                textAlign: 'center', padding: '0.35rem 0.4rem',
+                color: eyeColor, fontWeight: 800, fontSize: '0.76rem',
+                borderBottom: `2px solid ${eyeColor}`, minWidth: 165,
+              }}>{eyeLabel}</th>
+              <th style={{
+                textAlign: 'right', padding: '0.35rem 0.75rem',
+                color: 'rgba(255,255,255,0.38)', fontWeight: 500,
+                fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>Ref.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={row.label} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'transparent' }}>
+                <td style={{
+                  padding: '0.3rem 0.75rem', fontWeight: 600,
+                  fontSize: '0.77rem', color: '#fff', whiteSpace: 'nowrap', verticalAlign: 'middle',
+                }}>{row.label}</td>
+                <td style={{ padding: '0.25rem 0.35rem', textAlign: 'center', verticalAlign: 'middle' }}>
+                  {row.node}
+                </td>
+                <td style={{
+                  padding: '0.3rem 0.75rem',
+                  color: 'rgba(255,255,255,0.36)', fontSize: '0.58rem',
+                  whiteSpace: 'nowrap', textAlign: 'right', verticalAlign: 'middle',
+                }}>{row.ref ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Column label row */}
-      <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-1.5 bg-slate-50 border-b border-slate-100">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Parâmetro</span>
-        <span className={`text-[10px] font-semibold uppercase tracking-wider ${labelCls} pr-1`}>
-          {eye} — {isOD ? 'Olho Direito' : 'Olho Esquerdo'}
-        </span>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Ref.</span>
-      </div>
-
-      {/* Keratometry */}
-      <SectionHeader label="Ceratometria" />
-      <KRow label="K1" value={eyeData.K1} axis={eyeData.K1Axis}
-        field="K1"
-        onChange={(v) => onFieldChange('K1', v)}
-        onAxisChange={(v) => onFieldChange('K1Axis', v)}
-      />
-      <KRow label="K2" value={eyeData.K2} axis={eyeData.K2Axis}
-        field="K2"
-        onChange={(v) => onFieldChange('K2', v)}
-        onAxisChange={(v) => onFieldChange('K2Axis', v)}
-      />
-      {eyeData.Cyl != null && (
-        <FieldRow label="CYL" value={eyeData.Cyl} unit="D" field="Cyl" step={0.01}
-          note={eyeData.Axis != null ? `eixo ${Math.round(eyeData.Axis)}°` : undefined}
-          onChange={(v) => onFieldChange('Cyl', v)}
-        />
+      {/* Campos adicionais */}
+      {extras.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowExtra(!showExtra)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: '0.45rem',
+              padding: '0.5rem 0.75rem',
+              background: 'rgba(255,255,255,0.035)', borderTop: '1px solid rgba(255,255,255,0.07)',
+              fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.055em', color: 'rgba(255,255,255,0.45)',
+              cursor: 'pointer', border: 'none',
+            }}
+          >
+            <span style={{ transition: 'transform 0.2s', transform: showExtra ? 'rotate(180deg)' : 'none', display: 'inline-block' }}>▼</span>
+            Campos Adicionais ({eye})
+          </button>
+          {showExtra && (
+            <div style={{
+              padding: '0.65rem 0.85rem',
+              background: 'rgba(0,0,0,0.14)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex', flexDirection: 'column', gap: '0.3rem',
+            }}>
+              {extras.map((f) => (
+                <div key={f.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{f.label}</span>
+                  <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    {(f.value as number).toFixed(f.d)} <span style={{ opacity: 0.5, fontWeight: 400 }}>{f.unit}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
-
-      {/* Biometry */}
-      <SectionHeader label="Biometria" />
-      <FieldRow label="Comprimento Axial" value={eyeData.AL} unit="mm" field="AL" step={0.01}
-        onChange={(v) => onFieldChange('AL', v)}
-      />
-      <FieldRow label="ACD" value={eyeData.ACD} unit="mm" field="ACD" step={0.01}
-        onChange={(v) => onFieldChange('ACD', v)}
-      />
-      <FieldRow label="LT" value={eyeData.LT ?? 4.2} unit="mm" field="LT" step={0.01}
-        onChange={(v) => onFieldChange('LT', v)}
-      />
-      <FieldRow label="CCT" value={eyeData.CCT ?? 540} unit="µm" field="CCT" step={1}
-        onChange={(v) => onFieldChange('CCT', v)}
-      />
-      <FieldRow label="WTW" value={eyeData.WTW} unit="mm" field="WTW" step={0.1}
-        onChange={(v) => onFieldChange('WTW', v)}
-      />
-
-      {/* Surgery params */}
-      <SectionHeader label="Parâmetros Cirúrgicos" />
-      {/* SIA — shared, same for both eyes */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 hover:bg-blue-50/30 transition-colors">
-        <span className="flex-1 text-xs font-medium text-slate-600">SIA (Cirurgião)</span>
-        <div className="flex items-center gap-1 shrink-0">
-          <input type="number" step={0.01} min={0} max={3}
-            value={surgeryParams.SIA}
-            onChange={(e) => onSurgeryChange({ SIA: parseFloat(e.target.value) || 0 })}
-            className="w-12 text-right font-mono font-semibold text-sm text-gray-900
-              bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
-              hover:border-blue-400 hover:bg-white/60
-              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
-          />
-          <span className="text-[11px] text-slate-400">@</span>
-          <input type="number" step={1} min={0} max={180}
-            value={surgeryParams.SIAAxis}
-            onChange={(e) => onSurgeryChange({ SIAAxis: parseInt(e.target.value) || 0 })}
-            className="w-10 text-right font-mono font-semibold text-sm text-gray-900
-              bg-transparent border-0 border-b border-slate-300 outline-none rounded-none
-              hover:border-blue-400 hover:bg-white/60
-              focus:border-blue-500 focus:bg-blue-50 focus:rounded-sm focus:px-1 transition-all"
-          />
-          <span className="text-[11px] text-slate-400">°</span>
-        </div>
-        <span className="shrink-0 w-4 h-4" />
-      </div>
-      {/* Ref target — per eye */}
-      <FieldRow label="Refração Alvo" value={eyeParams.refTarget} unit="D" step={0.25}
-        onChange={(v) => {
-          if (isOD) onSurgeryChange({ OD: { ...surgeryParams.OD, refTarget: v } })
-          else onSurgeryChange({ OE: { ...surgeryParams.OE, refTarget: v } })
-        }}
-      />
-
-      {/* Campos adicionais toggle */}
-      <button
-        onClick={() => setShowAdditional(!showAdditional)}
-        className="w-full px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center gap-2
-          text-[10.5px] font-semibold uppercase tracking-wider text-slate-500
-          hover:text-slate-700 hover:bg-slate-100 transition-colors"
-      >
-        <span className={`transition-transform duration-200 ${showAdditional ? 'rotate-180' : ''}`}>▼</span>
-        Campos Adicionais ({eye})
-      </button>
-      {showAdditional && <AdditionalFields eyeData={eyeData} eye={eye} />}
     </div>
   )
 }
 
-// ─── Center sticky panel — file viewer ────────────────────────────────────────
+// ─── Center panel — file viewer ────────────────────────────────────────────────
 interface ExamViewerPanelProps {
   fileDataUrl: string | null
   meta: BiometryMeta
@@ -311,92 +340,61 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
     { label: 'ACD', field: 'ACD', unit: 'mm', d: 2 },
     { label: 'LT',  field: 'LT',  unit: 'mm', d: 2 },
     { label: 'CCT', field: 'CCT', unit: 'µm', d: 0 },
-    { label: 'WTW', field: 'WTW', unit: 'mm', d: 1 },
+    { label: 'WTW', field: 'WTW', unit: 'mm', d: 2 },
     { label: 'CYL', field: 'Cyl', unit: 'D',  d: 2 },
   ]
   const fmt = (v: number | undefined, d: number) =>
     v != null && Number.isFinite(v) ? (d === 0 ? Math.round(v).toString() : v.toFixed(d)) : '—'
 
-  const isPDF = meta.fileType === 'application/pdf'
+  const isPDF   = meta.fileType === 'application/pdf'
   const isImage = meta.fileType?.startsWith('image/')
   const hasFile = !!fileDataUrl && (isPDF || isImage)
 
   if (hasFile) {
     return (
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          border: '1px solid',
-          borderColor: isExpanded ? '#14b8a6' : '#e2e8f0',
-          outline: isExpanded ? '3px solid rgba(20,184,166,0.22)' : '3px solid transparent',
-          outlineOffset: '2px',
-          boxShadow: isExpanded
-            ? '0 0 0 1px rgba(20,184,166,0.1), 0 20px 45px rgba(0,0,0,0.22)'
-            : '0 1px 4px rgba(0,0,0,0.06)',
-          transform: isExpanded ? 'scale(1.008)' : 'scale(1)',
-          transition: [
-            'border-color 0.4s cubic-bezier(0.4,0,0.2,1)',
-            'outline-color 0.4s cubic-bezier(0.4,0,0.2,1)',
-            'box-shadow 0.4s cubic-bezier(0.4,0,0.2,1)',
-            'transform 0.45s cubic-bezier(0.34,1.56,0.64,1)',
-          ].join(', '),
-        }}
-      >
-        {/* Header */}
-        <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-300 flex-1 truncate">
+      <div style={{
+        borderRadius: 12, overflow: 'hidden',
+        border: `1px solid ${isExpanded ? TEAL : 'rgba(255,255,255,0.1)'}`,
+        outline: isExpanded ? `3px solid rgba(77,182,172,0.2)` : '3px solid transparent',
+        outlineOffset: '2px',
+        boxShadow: isExpanded ? '0 0 0 1px rgba(77,182,172,0.1), 0 20px 45px rgba(0,0,0,0.3)' : '0 4px 20px rgba(0,0,0,0.15)',
+        transform: isExpanded ? 'scale(1.006)' : 'scale(1)',
+        transition: ['border-color 0.4s ease', 'outline-color 0.4s ease', 'box-shadow 0.4s ease', 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)'].join(', '),
+      }}>
+        <div style={{
+          padding: '0.55rem 0.85rem', background: '#394149', borderBottom: '1px solid rgba(255,255,255,0.07)',
+          display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-barlow, Barlow, sans-serif)',
+        }}>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(255,255,255,0.6)', flex: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Biometria Original
           </span>
           <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white
-              px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition-colors whitespace-nowrap">
+            style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.45)', padding: '0.25rem 0.6rem', borderRadius: 4, border: '1px solid rgba(255,255,255,0.15)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
             ↗ Nova Aba
           </a>
           <button
             onClick={onToggleExpand}
-            className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border whitespace-nowrap font-medium"
             style={{
-              background: isExpanded ? '#14b8a6' : 'rgba(255,255,255,0.07)',
-              color: isExpanded ? '#fff' : '#cbd5e1',
-              borderColor: isExpanded ? '#0d9488' : '#475569',
-              transform: 'scale(1)',
-              transition: 'background 0.3s cubic-bezier(0.4,0,0.2,1), color 0.3s, border-color 0.3s, transform 0.15s',
+              fontSize: '0.65rem', padding: '0.25rem 0.7rem', borderRadius: 100,
+              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 700,
+              background: isExpanded ? TEAL : 'rgba(255,255,255,0.08)',
+              color: isExpanded ? '#fff' : 'rgba(255,255,255,0.6)',
+              transition: 'background 0.3s, color 0.3s',
             }}
-            onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.94)' }}
-            onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
           >
-            {isExpanded ? '⤡ Reduzir Painel' : '⤢ Ampliar Painel'}
+            {isExpanded ? '⤡ Reduzir' : '⤢ Ampliar'}
           </button>
         </div>
-        {/* File viewer — height animates */}
-        <div
-          className="overflow-hidden bg-slate-900"
-          style={{
-            height: isExpanded ? '80vh' : '420px',
-            maxHeight: isExpanded ? '1200px' : '800px',
-            transition: 'height 0.5s cubic-bezier(0.4,0,0.2,1), max-height 0.5s cubic-bezier(0.4,0,0.2,1)',
-          }}
-        >
-          {isPDF && (
-            <iframe
-              src={fileDataUrl!}
-              className="w-full h-full border-0"
-              title="Biometria original"
-            />
-          )}
+        <div style={{
+          overflow: 'hidden', background: '#2a3340',
+          height: isExpanded ? '78vh' : '400px',
+          transition: 'height 0.5s cubic-bezier(0.4,0,0.2,1)',
+        }}>
+          {isPDF && <iframe src={fileDataUrl!} className="w-full h-full border-0" title="Biometria original" />}
           {isImage && (
-            <div
-              className="w-full h-full overflow-y-auto flex items-start justify-center"
-              style={{ cursor: isExpanded ? 'zoom-out' : 'zoom-in' }}
-              onClick={onToggleExpand}
-            >
+            <div className="w-full h-full overflow-y-auto flex items-start justify-center" style={{ cursor: isExpanded ? 'zoom-out' : 'zoom-in' }} onClick={onToggleExpand}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={fileDataUrl!}
-                className="w-full h-auto object-contain"
-                alt="Biometria original"
-              />
+              <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
             </div>
           )}
         </div>
@@ -404,43 +402,50 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
     )
   }
 
-  // Fallback: numeric comparison table
+  // Fallback: tabela comparativa numérica
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Biometria</p>
-        <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">
+    <div style={{
+      background: CARD_BG, borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+      color: '#fff', border: '1px solid rgba(255,255,255,0.05)',
+      fontFamily: 'var(--font-barlow, Barlow, sans-serif)', overflow: 'hidden',
+    }}>
+      <div style={{ padding: '0.75rem 1rem', background: '#394149', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <p style={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>Biometria</p>
+        <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {meta.equipment ?? meta.filename}
         </p>
       </div>
-      <div className="grid grid-cols-3 px-3 py-1.5 bg-white border-b border-slate-100">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '0.4rem 0.75rem', background: 'rgba(0,0,0,0.12)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <span />
-        <span className="text-[10px] font-bold text-blue-600 text-center uppercase tracking-wide">OD</span>
-        <span className="text-[10px] font-bold text-indigo-600 text-center uppercase tracking-wide">OE</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: EYE_COLOR.OD, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OD</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: EYE_COLOR.OE, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OE</span>
       </div>
-      {rows.map((row) => {
+      {rows.map((row, i) => {
         const od = biometry.OD[row.field] as number | undefined
         const oe = biometry.OE[row.field] as number | undefined
         if (od == null && oe == null) return null
         const odSt = fieldStatus(row.field === 'Cyl' ? 'Cyl' : row.label, od)
         const oeSt = fieldStatus(row.field === 'Cyl' ? 'Cyl' : row.label, oe)
         return (
-          <div key={row.label}
-            className="grid grid-cols-3 gap-1 px-3 py-1.5 border-b border-slate-100 last:border-0 hover:bg-slate-50">
-            <span className="text-[11px] text-slate-500 font-semibold self-center">
-              {row.label} <span className="text-slate-400 font-normal">{row.unit}</span>
+          <div key={row.label} style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem',
+            padding: '0.4rem 0.75rem', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
+          }}>
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600, alignSelf: 'center' }}>
+              {row.label} <span style={{ opacity: 0.5, fontWeight: 400 }}>{row.unit}</span>
             </span>
-            <div className="flex items-center justify-center gap-1">
-              <span className={`text-xs font-mono font-bold tabular-nums ${odSt === 'warn' ? 'text-amber-600' : 'text-blue-700'}`}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: odSt === 'warn' ? '#f29121' : EYE_COLOR.OD }}>
                 {fmt(od, row.d)}
               </span>
-              <CheckBadge status={odSt} />
+              <StatusIcon status={odSt} />
             </div>
-            <div className="flex items-center justify-center gap-1">
-              <span className={`text-xs font-mono font-bold tabular-nums ${oeSt === 'warn' ? 'text-amber-600' : 'text-indigo-700'}`}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: oeSt === 'warn' ? '#f29121' : EYE_COLOR.OE }}>
                 {fmt(oe, row.d)}
               </span>
-              <CheckBadge status={oeSt} />
+              <StatusIcon status={oeSt} />
             </div>
           </div>
         )
@@ -458,17 +463,20 @@ export default function ValidatePage() {
     surgeryParams, setSurgeryParams,
     fileDataUrl,
   } = useBiometryStore()
-  const [isConfirming, setIsConfirming] = useState(false)
+  const [isConfirming, setIsConfirming]     = useState(false)
   const [isPanelExpanded, setIsPanelExpanded] = useState(true)
 
   if (!biometry || !meta) {
     return (
-      <div className="max-w-md mx-auto text-center py-20">
-        <div className="text-6xl mb-4">📭</div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Nenhuma biometria carregada</h2>
-        <p className="text-gray-500 mb-6">Envie um arquivo de exame para continuar.</p>
+      <div style={{ maxWidth: 420, margin: '0 auto', textAlign: 'center', padding: '5rem 1rem' }}>
+        <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>📭</div>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.5rem' }}>
+          Nenhuma biometria carregada
+        </h2>
+        <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>Envie um arquivo de exame para continuar.</p>
         <button onClick={() => router.push('/')}
-          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors">
+          className="btn-med-primary"
+          style={{ background: '#2563eb' }}>
           Ir para upload
         </button>
       </div>
@@ -481,99 +489,119 @@ export default function ValidatePage() {
     (['K1', 'K2', 'AL', 'ACD'] as const).some((f) => fieldStatus(f, biometry.OE[f]) === 'warn')
 
   return (
-    <div
-      className="mx-auto space-y-5"
-      style={{
-        maxWidth: isPanelExpanded ? '1800px' : '1024px',
-        transition: 'max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-    >
-
-      {/* ── Dark header panel ─────────────────────────────────────────────── */}
-      <div className="bg-[#1B2236] rounded-2xl overflow-hidden">
-        <div className="px-6 pt-5 pb-4">
-          <div className="mb-3">
-            <span className="inline-flex items-center gap-1.5 bg-emerald-500 text-white text-[11px] font-bold
-              px-2.5 py-1 rounded-full uppercase tracking-wide">
-              ✦ Dados extraídos por IA
-            </span>
-          </div>
-          <h1 className="text-xl font-bold text-white">Revise os parâmetros biométricos</h1>
-          <p className="text-slate-400 text-sm mt-1">
+    <div style={{
+      margin: '0 auto',
+      maxWidth: isPanelExpanded ? '1700px' : '1000px',
+      transition: 'max-width 0.5s cubic-bezier(0.4,0,0.2,1)',
+      fontFamily: 'var(--font-barlow, Barlow, sans-serif)',
+    }}>
+      {/* ── Header dark card ──────────────────────────────────────────────────── */}
+      <div style={{
+        background: '#394149',
+        borderRadius: 12,
+        overflow: 'hidden',
+        border: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        marginBottom: '1.25rem',
+        color: '#fff',
+      }}>
+        <div style={{ padding: '1.1rem 1.5rem 0.9rem' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+            background: 'rgba(77,182,172,0.18)', color: TEAL,
+            fontSize: '0.65rem', fontWeight: 800, padding: '0.22rem 0.65rem',
+            borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em',
+            marginBottom: '0.6rem',
+          }}>
+            ✦ {isManualEntry ? 'Entrada Manual' : 'Dados Extraídos por IA'}
+          </span>
+          <h1 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#fff' }}>
+            Revise os parâmetros biométricos
+          </h1>
+          <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.55)', marginTop: '0.25rem' }}>
             Compare os dados extraídos com o exame original abaixo.
           </p>
         </div>
 
-        {/* Patient info strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 border-t border-white/10
-          divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-          <div className="px-6 py-3.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Paciente</p>
-            <p className="text-white font-bold mt-0.5 truncate">{meta.patientName ?? '—'}</p>
-          </div>
-          <div className="px-6 py-3.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Gênero</p>
-            <p className="text-white font-bold mt-0.5">{meta.gender ?? '—'}</p>
-          </div>
-          <div className="px-6 py-3.5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Exame</p>
-              <p className="text-white font-bold mt-0.5 truncate">{meta.equipment ?? meta.filename}</p>
+        {/* Patient strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          {[
+            { label: 'Paciente', value: meta.patientName ?? '—' },
+            { label: 'Gênero',   value: meta.gender ?? '—' },
+            { label: 'Exame',    value: meta.equipment ?? meta.filename },
+          ].map(({ label, value }, i) => (
+            <div key={label} style={{
+              padding: '0.75rem 1.25rem',
+              borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+            }}>
+              <p style={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.055em', color: 'rgba(255,255,255,0.4)' }}>
+                {label}
+              </p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff', marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {value}
+              </p>
             </div>
-            <button
-              onClick={() => { clearBiometry(); router.push('/') }}
-              className="shrink-0 text-xs text-slate-400 border border-slate-600 rounded-lg px-2.5 py-1
-                hover:text-white hover:border-slate-400 transition-colors mt-3"
-            >
-              Trocar
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* ── Alerts ────────────────────────────────────────────────────────── */}
+      {/* ── Alertas ───────────────────────────────────────────────────────────── */}
       {isManualEntry && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-start gap-3">
-          <span className="text-amber-500 text-base mt-0.5">✏️</span>
-          <div className="text-sm">
-            <span className="font-semibold text-amber-800">Entrada manual.</span>
-            <span className="text-amber-700"> Preencha os campos abaixo com os valores do laudo biométrico.</span>
+        <div style={{
+          background: 'rgba(242,145,33,0.08)', border: '1px solid rgba(242,145,33,0.3)',
+          borderRadius: 10, padding: '0.75rem 1rem', marginBottom: '1rem',
+          display: 'flex', gap: '0.65rem', alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: '0.9rem', marginTop: '0.05rem' }}>✏️</span>
+          <div style={{ fontSize: '0.82rem', color: '#fff' }}>
+            <strong style={{ color: '#f29121' }}>Entrada manual.</strong>{' '}
+            <span style={{ opacity: 0.75 }}>Preencha os campos abaixo com os valores do laudo biométrico.</span>
           </div>
         </div>
       )}
       {hasWarnings && !isManualEntry && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-start gap-3 text-sm">
+        <div style={{
+          background: 'rgba(242,145,33,0.08)', border: '1px solid rgba(242,145,33,0.3)',
+          borderRadius: 10, padding: '0.75rem 1rem', marginBottom: '1rem',
+          display: 'flex', gap: '0.65rem', alignItems: 'flex-start',
+        }}>
           <span>⚠️</span>
-          <span className="text-amber-800">
-            Campos marcados com <strong>!</strong> estão fora da faixa esperada — verifique antes de calcular.
+          <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.8)' }}>
+            Campos marcados com <strong style={{ color: '#f29121' }}>!</strong> estão fora da faixa esperada — verifique antes de calcular.
           </span>
         </div>
       )}
 
-      {/* ── 3-column layout ───────────────────────────────────────────────── */}
-      <div
-        className="grid grid-cols-1 gap-4 items-start"
-        style={{
-          gridTemplateColumns: isPanelExpanded
-            ? '1fr 2.5fr 1fr'
-            : '1fr 260px 1fr',
-          transition: 'grid-template-columns 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
+      {/* ── Legend ────────────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
+        fontSize: '0.68rem', color: 'rgba(255,255,255,0.45)', marginBottom: '1rem',
+      }}>
+        <span><span style={{ color: TEAL, fontWeight: 800 }}>✓</span> OK</span>
+        <span><span style={{ color: '#f29121', fontWeight: 800 }}>!</span> Alerta Clínico</span>
+        <span style={{ color: 'rgba(255,255,255,0.25)' }}>Inputs editáveis — arraste ou digite</span>
+      </div>
+
+      {/* ── 3-column grid ─────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isPanelExpanded ? '1fr 2.2fr 1fr' : '1fr 240px 1fr',
+        gap: '1.1rem',
+        alignItems: 'start',
+        transition: 'grid-template-columns 0.5s cubic-bezier(0.4,0,0.2,1)',
+      }}>
 
         {/* OD */}
-        <EyeColumn
+        <EyeTable
           eye="OD"
           eyeData={biometry.OD}
           surgeryParams={surgeryParams}
-          onFieldChange={(field, value) =>
-            updateODField(field as keyof ParsedBiometry['OD'], value)
-          }
+          onFieldChange={(f, v) => updateODField(f as keyof ParsedBiometry['OD'], v)}
           onSurgeryChange={setSurgeryParams}
         />
 
-        {/* Sticky center panel */}
-        <div className="sticky top-36">
+        {/* Centro — sticky */}
+        <div style={{ position: 'sticky', top: '9rem' }}>
           <ExamViewerPanel
             fileDataUrl={fileDataUrl}
             meta={meta}
@@ -584,23 +612,23 @@ export default function ValidatePage() {
         </div>
 
         {/* OE */}
-        <EyeColumn
+        <EyeTable
           eye="OE"
           eyeData={biometry.OE}
           surgeryParams={surgeryParams}
-          onFieldChange={(field, value) =>
-            updateOEField(field as keyof ParsedBiometry['OE'], value)
-          }
+          onFieldChange={(f, v) => updateOEField(f as keyof ParsedBiometry['OE'], v)}
           onSurgeryChange={setSurgeryParams}
         />
       </div>
 
-      {/* ── Actions ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 pt-2">
+      {/* ── Ações ─────────────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.75rem',
+        marginTop: '1.5rem', paddingTop: '0.5rem',
+      }}>
         <button
           onClick={() => { clearBiometry(); router.push('/') }}
-          className="px-5 py-3 border border-slate-200 text-gray-600 rounded-xl font-medium
-            hover:bg-slate-50 transition-colors"
+          className="btn-med-secondary"
         >
           ← Voltar
         </button>
@@ -611,18 +639,18 @@ export default function ValidatePage() {
             router.push('/calculators')
           }}
           disabled={isConfirming}
-          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3
-            rounded-xl font-semibold hover:bg-blue-700 disabled:bg-blue-400
-            disabled:cursor-not-allowed transition-colors shadow-sm"
+          className="btn-med-primary"
+          style={{ flex: 1, maxWidth: 420 }}
         >
           {isConfirming ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="animate-spin-med" style={{
+                display: 'inline-block', width: 16, height: 16, borderRadius: '50%',
+                border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
+              }} />
               Confirmando...
-            </>
-          ) : (
-            <>Confirmar e selecionar calculadoras →</>
-          )}
+            </span>
+          ) : 'Confirmar e selecionar calculadoras →'}
         </button>
       </div>
     </div>

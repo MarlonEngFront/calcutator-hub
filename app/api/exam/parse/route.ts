@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getExamStatus, getExamRelateds, getPatient } from '@/app/lib/voiston-server'
-import { parseExamRelateds, normalizeEyeData } from '@/app/lib/exam-relateds-parser'
+import { parseExamRelateds, normalizeEyeData, unwrapExamRelatedsPayload } from '@/app/lib/exam-relateds-parser'
 
 export const runtime = 'nodejs'
 
@@ -26,25 +26,39 @@ export async function GET(req: NextRequest) {
       getExamStatus(examId),
     ])
 
+    console.log('[exam/parse] relateds raw:', JSON.stringify(relateds).slice(0, 500))
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const examObj = (fullExam as any)?.Exam || fullExam
     const examTypeId: number | undefined = examObj?.ExamType?.ID
     const examTypeName: string | undefined =
       typeof examObj?.ExamType?.Name === 'string' ? examObj.ExamType.Name.trim() : undefined
 
-    let session = parseExamRelateds(relateds, examId, examTypeId)
+    const relatedsRoot = unwrapExamRelatedsPayload(relateds)
+    console.log('[exam/parse] relatedsRoot after unwrap:', JSON.stringify(relatedsRoot).slice(0, 500))
+
+    let session = parseExamRelateds(relatedsRoot, examId, examTypeId)
+    console.log('[exam/parse] session after parse:', session ? 'OK' : 'NULL - DATA NOT EXTRACTED')
+
     if (!session) {
-      session = {
-        OD: normalizeEyeData({}),
-        OE: normalizeEyeData({}),
-        examId,
-        examTypeId,
-      }
+      console.error('[exam/parse] WARNING: No biometric data could be extracted from Voiston API response')
+      console.error('[exam/parse] relateds structure:', Object.keys(relatedsRoot))
+      console.error('[exam/parse] relateds has GroupedMeasurement?', Array.isArray((relatedsRoot as any)?.GroupedMeasurement))
+
+      // Return error instead of silent fallback with default values
+      return NextResponse.json({
+        error: 'Nenhum dado biométrico foi extraído do arquivo. Verifique se o arquivo é um exame suportado (IOLMaster, Pentacam, Nidek, etc).',
+        debug: {
+          examId,
+          relatedsKeys: Object.keys(relatedsRoot),
+          hasGroupedMeasurement: Array.isArray((relatedsRoot as any)?.GroupedMeasurement),
+        },
+      }, { status: 422 })
     }
 
     // Enriquece metadados do paciente
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const relData = relateds as any
+    const relData = relatedsRoot as any
     let name: string | undefined = examObj?.PatientName
     let gender: unknown = undefined
     let birthDate: string | undefined = examObj?.PossiblePatientDOB
