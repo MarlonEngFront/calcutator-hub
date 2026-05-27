@@ -295,44 +295,42 @@ export function parseExamRelateds(
 
   if (!groupedMeasurements || !Array.isArray(groupedMeasurements)) {
     // Fallback 1: Try to extract from flat numeric values
-    const flat = flattenNumericValues(obj)
-    if (Object.keys(flat).length > 0) {
-      return {
-        OD: normalizeEyeData(flat),
-        OE: normalizeEyeData(flat),
-        examId,
-        examTypeId: typeof examTypeId === 'number' ? examTypeId : undefined,
-      }
-    }
+    let flat = flattenNumericValues(obj)
 
     // Fallback 2: Try to extract from Measurements array (newer API format)
-    const measurements = (obj as any)?.Measurements as Array<{
-      Side?: number
-      Type?: { DisplayName?: string; Name?: string }
-      DoubleValue?: number
-      StringValue?: string
-    }> | undefined
+    if (Object.keys(flat).length === 0) {
+      const measurements = (obj as any)?.Measurements as Array<{
+        Side?: number
+        Type?: { DisplayName?: string; Name?: string }
+        DoubleValue?: number
+        StringValue?: string
+      }> | undefined
 
-    if (Array.isArray(measurements) && measurements.length > 0) {
-      const byName: Record<string, number> = {}
-      for (const m of measurements) {
-        if (m.DoubleValue != null && Number.isFinite(m.DoubleValue)) {
-          const displayName = m.Type?.DisplayName || m.Type?.Name
-          if (displayName) byName[displayName] = m.DoubleValue
+      if (Array.isArray(measurements) && measurements.length > 0) {
+        for (const m of measurements) {
+          if (m.DoubleValue != null && Number.isFinite(m.DoubleValue)) {
+            const displayName = m.Type?.DisplayName || m.Type?.Name
+            if (displayName) flat[displayName] = m.DoubleValue
+          }
         }
-      }
-      if (Object.keys(byName).length > 0) {
-        console.log('[parseExamRelateds] Using Measurements fallback, extracted keys:', Object.keys(byName))
-        return {
-          OD: normalizeEyeData(byName),
-          OE: normalizeEyeData(byName),
-          examId,
-          examTypeId: typeof examTypeId === 'number' ? examTypeId : undefined,
+        if (Object.keys(flat).length > 0) {
+          console.log('[parseExamRelateds] Using Measurements fallback, extracted keys:', Object.keys(flat))
         }
       }
     }
 
-    return null
+    // Return null if no data found (don't silently return defaults)
+    if (Object.keys(flat).length === 0) {
+      console.log('[parseExamRelateds] No extractable data found in relateds')
+      return null
+    }
+
+    return {
+      OD: normalizeEyeData(flat),
+      OE: normalizeEyeData(flat),
+      examId,
+      examTypeId: typeof examTypeId === 'number' ? examTypeId : undefined,
+    }
   }
 
   // Side 2 = OD, Side 1 = OE (Voiston API convention)
