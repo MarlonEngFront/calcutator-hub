@@ -11,10 +11,6 @@ import {
   type CalcLens,
 } from '@/app/lib/calculator-lens-catalogs'
 
-/** pACD = 0.5663 × A − 61.70 (ULIB regression) */
-function aConstantToPACD(a: number) {
-  return Math.round((0.5663 * a - 61.70) * 100) / 100
-}
 
 const CALCULATORS = [
   {
@@ -72,11 +68,10 @@ const CALCULATORS = [
     name: 'ESCRS IOL Calculator',
     org: 'ESCRS',
     url: 'https://iolcalculator.escrs.org/',
-    description: 'Barrett, Cooke K6, EVO, Hill-RBF, Hoffer®QST, Kane, Pearl DGS. Preencha manualmente — reCAPTCHA impede automação.',
+    description: 'Hill-RBF, Hoffer®QST, Kane e mais — reCAPTCHA resolvido automaticamente via 2captcha.',
     status: 'available' as const,
-    mode: 'manual' as const,
-    tags: ['Barrett', 'Kane', 'EVO', 'Hill-RBF'],
-    logoText: 'ESC', logoBg: 'bg-blue-700', time: 'Manual',
+    tags: ['Hill-RBF', 'Hoffer', 'Kane'],
+    logoText: 'ESC', logoBg: 'bg-blue-700', time: '~2-3min',
   },
 ]
 
@@ -202,135 +197,6 @@ function LensPickerPanel({ selectedLenses, onChange }: LensPickerPanelProps) {
           <p className="text-sm text-gray-400 text-center py-3">
             Selecione um fabricante acima para ver as lentes disponíveis
           </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── ESCRS Manual Reference Panel ────────────────────────────────────────────
-interface EscrsManualPanelProps {
-  biometry: ParsedBiometry
-  surgeryParams: SurgeryParams
-  lenses: CalcLens[]
-}
-
-function EscrsManualPanel({ biometry, surgeryParams, lenses }: EscrsManualPanelProps) {
-  const rows = [
-    { label: 'AL',             od: biometry.OD.AL,               oe: biometry.OE.AL,               unit: 'mm' },
-    { label: 'ACD',            od: biometry.OD.ACD,              oe: biometry.OE.ACD,              unit: 'mm' },
-    { label: 'LT',             od: biometry.OD.LT,               oe: biometry.OE.LT,               unit: 'mm' },
-    { label: 'WTW',            od: biometry.OD.WTW,              oe: biometry.OE.WTW,              unit: 'mm' },
-    { label: 'CCT',            od: biometry.OD.CCT,              oe: biometry.OE.CCT,              unit: 'µm' },
-    { label: 'K1',             od: biometry.OD.K1,               oe: biometry.OE.K1,               unit: 'D' },
-    { label: 'K2',             od: biometry.OD.K2,               oe: biometry.OE.K2,               unit: 'D' },
-    { label: 'Alvo refrativo', od: surgeryParams.OD.refTarget,   oe: surgeryParams.OE.refTarget,   unit: 'D' },
-  ]
-  const constNames = [
-    'Barrett A-Constant', 'Cooke A-Constant', 'EVO A-Constant',
-    'Hill-RBF A-Constant', 'Kane A-Constant', 'Pearl DGS A-Constant',
-  ]
-
-  return (
-    <div className="bg-blue-50 border border-blue-200 rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-blue-200 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-              Manual
-            </span>
-            <h3 className="font-semibold text-blue-900">ESCRS IOL Calculator</h3>
-          </div>
-          <p className="text-xs text-blue-700">
-            ⚠️ reCAPTCHA impede automação. Abra o site e preencha com os valores abaixo.
-          </p>
-        </div>
-        <a
-          href="https://iolcalculator.escrs.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          Abrir ESCRS ↗
-        </a>
-      </div>
-
-      <div className="p-6 space-y-5">
-        {/* Biometry table */}
-        <div>
-          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Biometria</p>
-          <div className="bg-white rounded-xl border border-blue-100 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-blue-50 text-blue-700 text-xs font-semibold">
-                  <th className="px-4 py-2 text-left">Campo</th>
-                  <th className="px-4 py-2 text-center">OD</th>
-                  <th className="px-4 py-2 text-center">OE</th>
-                  <th className="px-4 py-2 text-left text-gray-400">Un.</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((r) => (
-                  <tr key={r.label} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-medium text-gray-700">{r.label}</td>
-                    <td className="px-4 py-2 text-center font-mono font-bold text-blue-800">
-                      {r.od != null ? r.od.toFixed(r.unit === 'µm' ? 0 : 2) : '—'}
-                    </td>
-                    <td className="px-4 py-2 text-center font-mono font-bold text-indigo-800">
-                      {r.oe != null ? r.oe.toFixed(r.unit === 'µm' ? 0 : 2) : '—'}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-gray-400">{r.unit}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Constants per selected lens */}
-        {lenses.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">
-              Constantes por LIO
-            </p>
-            {lenses.map((lens, i) => {
-              const a = lens.aConstant ?? 119.0
-              const pACD = aConstantToPACD(a)
-              return (
-                <div key={lens.code} className="mb-3 last:mb-0">
-                  <p className="text-xs font-semibold text-gray-600 mb-1">
-                    <span className="bg-blue-600 text-white rounded-full px-1.5 py-0.5 text-xs font-bold mr-1.5">
-                      {i + 1}
-                    </span>
-                    {lens.family} · {lens.manufacturer}
-                  </p>
-                  <div className="bg-white rounded-xl border border-blue-100 overflow-hidden">
-                    <table className="w-full text-sm">
-                      <tbody className="divide-y divide-slate-100">
-                        {constNames.map((name) => (
-                          <tr key={name} className="hover:bg-slate-50">
-                            <td className="px-4 py-2 font-medium text-gray-700">{name}</td>
-                            <td className="px-4 py-2 text-right font-mono font-bold text-blue-800">
-                              {a.toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="hover:bg-slate-50 bg-blue-50">
-                          <td className="px-4 py-2 font-medium text-gray-700">Hoffer® pACD</td>
-                          <td className="px-4 py-2 text-right font-mono font-bold text-blue-800">
-                            {pACD.toFixed(2)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p className="text-xs text-gray-400 px-4 py-1.5">
-                      pACD = 0.5663 × {a.toFixed(2)} − 61.70 = {pACD.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
         )}
       </div>
     </div>
@@ -531,14 +397,7 @@ export default function CalculatorsPage() {
   }
 
   const selectedAvailable = [...selectedCalcs].filter((id) => available.find((c) => c.id === id))
-  const selectedGateway = selectedAvailable.filter((id) => {
-    const calc = CALCULATORS.find((c) => c.id === id)
-    return calc && !('mode' in calc && calc.mode === 'manual')
-  })
-  const selectedManual = selectedAvailable.filter((id) => {
-    const calc = CALCULATORS.find((c) => c.id === id)
-    return calc && 'mode' in calc && calc.mode === 'manual'
-  })
+  const selectedGateway = selectedAvailable // todas as calculadoras vão via gateway agora
 
   const canCalculate = selectedLenses.length > 0 && selectedGateway.length > 0
 
@@ -727,15 +586,6 @@ export default function CalculatorsPage() {
         </div>
       </div>
 
-      {/* ESCRS manual panel */}
-      {selectedManual.includes('escrs') && biometry && (
-        <EscrsManualPanel
-          biometry={biometry}
-          surgeryParams={surgeryParams}
-          lenses={selectedLenses}
-        />
-      )}
-
       {/* Error */}
       {calcError && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-start gap-3 text-sm text-red-800">
@@ -752,13 +602,6 @@ export default function CalculatorsPage() {
           ⚠️ Selecione ao menos uma lente no passo 1 para calcular.
         </div>
       )}
-      {selectedManual.length > 0 && selectedGateway.length === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 text-sm text-blue-800">
-          ℹ️ ESCRS selecionado em modo manual — use o painel acima para preencher os valores no site.
-          Adicione outra calculadora para usar o gateway automatizado.
-        </div>
-      )}
-
       {/* Actions */}
       <div className="flex items-center gap-3 pt-2">
         <button
