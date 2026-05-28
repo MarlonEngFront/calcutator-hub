@@ -3,6 +3,7 @@ import { ReactNode } from 'react'
 import { Barlow } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/app/components/AppShell'
+import { AnalyticsProvider } from '@/app/components/AnalyticsProvider'
 
 const barlow = Barlow({
   subsets: ['latin'],
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR" className={barlow.variable}>
       <body className="bg-slate-50 text-gray-900 antialiased">
+        <AnalyticsProvider />
         <AppShell>{children}</AppShell>
       </body>
     </html>

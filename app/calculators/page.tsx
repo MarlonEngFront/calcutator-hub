@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { logHubEvent } from '@/app/lib/analytics'
 import { useBiometryStore, type ParsedBiometry, type SurgeryParams } from '@/app/stores/biometry-store'
 import { IOL_CATALOG } from '@/app/lib/iol-catalog'
 import {
@@ -476,6 +477,7 @@ export default function CalculatorsPage() {
       }
     }
     if (invalidFields.length > 0) {
+      logHubEvent('hub_validacao_preflight_erro', { n_campos: invalidFields.length })
       setCalcError(
         `Campos fora do range aceito pelo gateway — volte e corrija:\n• ${invalidFields.join('\n• ')}`
       )
@@ -484,6 +486,10 @@ export default function CalculatorsPage() {
 
     setIsCalculating(true)
     setCalcError(null)
+    logHubEvent('hub_calculo_iniciado', {
+      n_lentes: selectedLenses.length,
+      n_calculadoras: selectedGateway.length,
+    })
 
     try {
       const eyes = { OD: buildEye(biometry.OD, surgeryParams, 'OD'), OE: buildEye(biometry.OE, surgeryParams, 'OE') }
@@ -608,6 +614,11 @@ export default function CalculatorsPage() {
       }
 
       setCalculationResults(allResults)
+      logHubEvent('hub_calculo_resultado', {
+        n_total: allResults.length,
+        n_sucesso: allResults.filter((r) => r.status === 'success').length,
+        n_erro: allResults.filter((r) => r.status === 'failed').length,
+      })
       router.push('/results')
     } catch (err) {
       setCalcError(err instanceof Error ? err.message : 'Erro ao calcular')

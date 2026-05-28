@@ -7,6 +7,7 @@ import { sessionEyeFromParsed } from '@/app/lib/biometry-view'
 import type { ParsedExamSession } from '@/app/lib/exam-relateds-parser'
 import { HubUploadManager } from '@/app/lib/hub-upload-manager'
 import type { HubUploadState } from '@/app/lib/hub-upload-manager'
+import { logHubEvent } from '@/app/lib/analytics'
 import { UploadProgressModal } from '@/app/components/UploadProgressModal'
 
 const PROCESS_STEPS = [
@@ -89,6 +90,9 @@ export default function UploadPage() {
         return
       }
       setError(null)
+      logHubEvent('hub_upload_iniciado', {
+        tipo: file.type === 'application/pdf' ? 'pdf' : 'imagem',
+      })
       setCurrentFile(file.name)
       // Blob URL for inline preview — no base64 conversion, works in embed/img, not persisted
       const blobUrl = URL.createObjectURL(file)
@@ -99,6 +103,9 @@ export default function UploadPage() {
         file,
         onProgress: (state) => setUploadState({ ...state }),
         onComplete: (session) => {
+          logHubEvent('hub_parse_concluido', {
+            equipamento: session.examTypeName ?? 'desconhecido',
+          })
           applyParsedSession(session, file)
           // Re-set blob URL — setBiometry() inside applyParsedSession resets fileDataUrl to null
           setFileDataUrl(blobUrl)
@@ -109,6 +116,7 @@ export default function UploadPage() {
           }, 1200)
         },
         onError: (_msg) => {
+          logHubEvent('hub_parse_erro')
           // Estado de erro já está no uploadState — modal mostra
         },
       })
@@ -236,6 +244,7 @@ export default function UploadPage() {
           </div>
           <button
             onClick={() => {
+              logHubEvent('hub_demo_usado')
               const demoSurgery = { SIA: 0.1, SIAAxis: 120, OD: { seIOLPower: 21, refTarget: 0 }, OE: { seIOLPower: 21, refTarget: 0 } }
               const demoK = {
                 K1: 44.12, K2: 45.42, K1Axis: 178, K2Axis: 88, Cyl: 1.30, Axis: 88,
