@@ -100,6 +100,8 @@ export default function UploadPage() {
         onProgress: (state) => setUploadState({ ...state }),
         onComplete: (session) => {
           applyParsedSession(session, file)
+          // Re-set blob URL — setBiometry() inside applyParsedSession resets fileDataUrl to null
+          setFileDataUrl(blobUrl)
           setTimeout(() => {
             setShowModal(false)
             setUploadState(null)

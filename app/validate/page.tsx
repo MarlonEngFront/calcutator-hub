@@ -79,7 +79,7 @@ function AnatomicalGuide({ side }: { side: 'OD' | 'OE' }) {
           <path d="M10 10C10 10 35 30 25 50C15 70 5 70 5 70" stroke={TEXT} strokeWidth="3" strokeLinecap="round" />
         </svg>
       </div>
-      <span style={{ fontSize: '0.67rem', fontWeight: 700, color: EYE_COLOR[side], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: EYE_COLOR[side], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
         {side === 'OD' ? 'Olho Direito' : 'Olho Esquerdo'}
       </span>
     </div>
@@ -88,8 +88,8 @@ function AnatomicalGuide({ side }: { side: 'OD' | 'OE' }) {
 
 // ─── Status icon ───────────────────────────────────────────────────────────────
 function StatusIcon({ status }: { status: 'ok' | 'warn' | 'neutral' }) {
-  if (status === 'ok')   return <span style={{ fontSize: '0.68rem', fontWeight: 800, color: TEAL, width: 12, flexShrink: 0 }}>✓</span>
-  if (status === 'warn') return <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#d97706', width: 12, flexShrink: 0 }}>!</span>
+  if (status === 'ok')   return <span style={{ fontSize: '0.78rem', fontWeight: 800, color: TEAL, width: 12, flexShrink: 0 }}>✓</span>
+  if (status === 'warn') return <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#d97706', width: 12, flexShrink: 0 }}>!</span>
   return <span style={{ width: 12, flexShrink: 0, display: 'inline-block' }} />
 }
 
@@ -107,7 +107,7 @@ function BioInput({ field, value, onChange, showStatus = true, compact }: BioInp
         className={`input-biometric ${status === 'warn' ? 'warn' : ''}`}
         style={{
           maxWidth: compact ? 58 : 72, minWidth: compact ? 48 : 58,
-          textAlign: 'center', fontSize: '0.88rem',
+          textAlign: 'center', fontSize: '0.96rem',
           padding: '0.18rem 0.1rem', height: '1.85rem',
           background: '#fff', color: TEXT, border: `1px solid ${BORDER}`,
           borderRadius: 6,
@@ -126,7 +126,7 @@ function KSection({ ref_mm, reading, selected, onSelect }: KSectionProps) {
 
   return (
     <div style={{ marginBottom: 0 }}>
-      <div style={{ fontSize: '0.57rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED, padding: '0.4rem 0.75rem 0.15rem' }}>
+      <div style={{ fontSize: '0.70rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED, padding: '0.4rem 0.75rem 0.15rem' }}>
         — Ceratometria ({ref_mm} mm) —
       </div>
       <div
@@ -152,7 +152,7 @@ function KSection({ ref_mm, reading, selected, onSelect }: KSectionProps) {
         </div>
 
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '0.69rem', fontWeight: 700, color: selected ? TEAL : TEXT_MED, marginBottom: '0.3rem' }}>
+          <div style={{ fontSize: '0.80rem', fontWeight: 700, color: selected ? TEAL : TEXT_MED, marginBottom: '0.3rem' }}>
             K1 / K2 (ref: {ref_mm})
           </div>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -163,20 +163,20 @@ function KSection({ ref_mm, reading, selected, onSelect }: KSectionProps) {
               return (
                 <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: '0.04rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                    <span style={{ fontSize: '0.88rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: selected ? TEXT : TEXT_MED }}>
+                    <span style={{ fontSize: '0.96rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: selected ? TEXT : TEXT_MED }}>
                       {val != null ? val.toFixed(2) : '—'}
                     </span>
                     {selected && <StatusIcon status={st} />}
                   </div>
                   {ax != null && (
-                    <span style={{ fontSize: '0.6rem', color: TEXT_MUTED, fontWeight: 600 }}>eixo {Math.round(ax)}°</span>
+                    <span style={{ fontSize: '0.72rem', color: TEXT_MUTED, fontWeight: 600 }}>eixo {Math.round(ax)}°</span>
                   )}
                 </div>
               )
             })}
           </div>
           {cyl != null && (
-            <div style={{ fontSize: '0.67rem', fontWeight: 600, marginTop: '0.22rem', color: selected ? TEXT_MED : TEXT_MUTED }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '0.22rem', color: selected ? TEXT_MED : TEXT_MUTED }}>
               CYL {cyl >= 0 ? '+' : ''}{cyl.toFixed(2)} D{cylAxis != null ? ` — eixo ${Math.round(cylAxis)}°` : ''}
             </div>
           )}
@@ -235,7 +235,7 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
             <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.04rem' }}>
               <BioInput field={k} value={eyeData[k]} onChange={(v) => onFieldChange(k, v)} />
               {eyeData[k === 'K1' ? 'K1Axis' : 'K2Axis'] != null && (
-                <span style={{ fontSize: '0.6rem', color: TEXT_MUTED, fontWeight: 600 }}>
+                <span style={{ fontSize: '0.72rem', color: TEXT_MUTED, fontWeight: 600 }}>
                   eixo {Math.round(eyeData[k === 'K1' ? 'K1Axis' : 'K2Axis'] as number)}°
                 </span>
               )}
@@ -249,7 +249,7 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
       node: (
         <div style={{ display: 'flex', gap: '0.28rem', alignItems: 'center', justifyContent: 'center' }}>
           <BioInput field="Cyl" value={eyeData.Cyl} onChange={(v) => onFieldChange('Cyl', v)} />
-          {eyeData.Axis != null && <span style={{ fontSize: '0.77rem', color: TEXT_MED, fontWeight: 700 }}>@ {Math.round(eyeData.Axis)}°</span>}
+          {eyeData.Axis != null && <span style={{ fontSize: '0.86rem', color: TEXT_MED, fontWeight: 700 }}>@ {Math.round(eyeData.Axis)}°</span>}
         </div>
       ),
     } as RowDef] : []),
@@ -280,9 +280,9 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
       node: (
         <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', justifyContent: 'center' }}>
           <BioInput field="SIA" value={surgeryParams.SIA} onChange={(v) => onSurgeryChange({ SIA: v })} showStatus={false} compact />
-          <span style={{ fontSize: '0.77rem', color: TEXT_MED, fontWeight: 700 }}>@</span>
+          <span style={{ fontSize: '0.86rem', color: TEXT_MED, fontWeight: 700 }}>@</span>
           <BioInput field="SIAAxis" value={surgeryParams.SIAAxis} onChange={(v) => onSurgeryChange({ SIAAxis: v })} showStatus={false} compact />
-          <span style={{ fontSize: '0.7rem', color: TEXT_MED }}>°</span>
+          <span style={{ fontSize: '0.80rem', color: TEXT_MED }}>°</span>
         </div>
       ),
     },
@@ -350,20 +350,20 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
 
       {/* Main table */}
       <div style={{ overflowX: 'auto', borderTop: `1px solid ${BORDER}` }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.96rem' }}>
           <thead>
             <tr style={{ background: CARD_HDR }}>
-              <th style={{ textAlign: 'left', padding: '0.32rem 0.75rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.57rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Parâmetro</th>
-              <th style={{ textAlign: 'center', padding: '0.32rem 0.4rem', color: eyeColor, fontWeight: 800, fontSize: '0.75rem', borderBottom: `2px solid ${eyeColor}`, minWidth: 160 }}>{eyeLabel}</th>
-              <th style={{ textAlign: 'right', padding: '0.32rem 0.75rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.57rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ref.</th>
+              <th style={{ textAlign: 'left', padding: '0.32rem 0.75rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Parâmetro</th>
+              <th style={{ textAlign: 'center', padding: '0.32rem 0.4rem', color: eyeColor, fontWeight: 800, fontSize: '0.85rem', borderBottom: `2px solid ${eyeColor}`, minWidth: 160 }}>{eyeLabel}</th>
+              <th style={{ textAlign: 'right', padding: '0.32rem 0.75rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ref.</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={row.label} style={{ background: i % 2 === 0 ? 'rgba(0,0,0,0.018)' : 'transparent', borderBottom: `1px solid ${BORDER}` }}>
-                <td style={{ padding: '0.28rem 0.75rem', fontWeight: 600, fontSize: '0.76rem', color: TEXT_MED, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{row.label}</td>
+                <td style={{ padding: '0.28rem 0.75rem', fontWeight: 600, fontSize: '0.86rem', color: TEXT_MED, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{row.label}</td>
                 <td style={{ padding: '0.22rem 0.35rem', textAlign: 'center', verticalAlign: 'middle' }}>{row.node}</td>
-                <td style={{ padding: '0.28rem 0.75rem', color: TEXT_MUTED, fontSize: '0.57rem', whiteSpace: 'nowrap', textAlign: 'right', verticalAlign: 'middle' }}>{row.ref ?? '—'}</td>
+                <td style={{ padding: '0.28rem 0.75rem', color: TEXT_MUTED, fontSize: '0.70rem', whiteSpace: 'nowrap', textAlign: 'right', verticalAlign: 'middle' }}>{row.ref ?? '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -379,7 +379,7 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
               width: '100%', display: 'flex', alignItems: 'center', gap: '0.4rem',
               padding: '0.48rem 0.75rem',
               background: CARD_HDR, borderTop: `1px solid ${BORDER}`,
-              fontSize: '0.59rem', fontWeight: 700, textTransform: 'uppercase',
+              fontSize: '0.70rem', fontWeight: 700, textTransform: 'uppercase',
               letterSpacing: '0.06em', color: TEXT_MED,
               cursor: 'pointer', border: 'none',
             }}
@@ -393,13 +393,13 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
                 const isHeader = (f as { header?: boolean }).header
                 const isIndent = (f as { indent?: boolean }).indent
                 if (isHeader) return (
-                  <div key={`h-${i}`} style={{ fontSize: '0.57rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED, marginTop: i > 0 ? '0.5rem' : 0 }}>
+                  <div key={`h-${i}`} style={{ fontSize: '0.70rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED, marginTop: i > 0 ? '0.5rem' : 0 }}>
                     {f.label}
                   </div>
                 )
                 return (
                   <div key={`${f.label}-${i}`} style={{
-                    display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem',
+                    display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem',
                     borderBottom: `1px solid ${BORDER}`, paddingBottom: '0.22rem',
                     paddingLeft: isIndent ? '0.75rem' : 0,
                   }}>
@@ -454,16 +454,16 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
           padding: '0.5rem 0.85rem', background: CARD_HDR, borderBottom: `1px solid ${BORDER}`,
           display: 'flex', alignItems: 'center', gap: '0.5rem',
         }}>
-          <span style={{ fontSize: '0.67rem', fontWeight: 700, color: TEXT_MED, flex: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: TEXT_MED, flex: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Biometria Original
           </span>
           <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '0.64rem', color: TEXT_MED, padding: '0.22rem 0.55rem', borderRadius: 4, border: `1px solid ${BORDER}`, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            style={{ fontSize: '0.74rem', color: TEXT_MED, padding: '0.22rem 0.55rem', borderRadius: 4, border: `1px solid ${BORDER}`, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             ↗ Nova Aba
           </a>
           <button onClick={onToggleExpand}
             style={{
-              fontSize: '0.64rem', padding: '0.22rem 0.65rem', borderRadius: 100,
+              fontSize: '0.74rem', padding: '0.22rem 0.65rem', borderRadius: 100,
               border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 700,
               background: isExpanded ? TEAL : BORDER,
               color: isExpanded ? '#fff' : TEXT_MED,
@@ -498,15 +498,15 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
   return (
     <div style={{ background: CARD_BG, borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
       <div style={{ padding: '0.75rem 1rem', background: CARD_HDR, borderBottom: `1px solid ${BORDER}` }}>
-        <p style={{ fontSize: '0.57rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED }}>Biometria</p>
-        <p style={{ fontSize: '0.85rem', fontWeight: 700, color: TEXT, marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <p style={{ fontSize: '0.70rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED }}>Biometria</p>
+        <p style={{ fontSize: '0.94rem', fontWeight: 700, color: TEXT, marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {meta.equipment ?? meta.filename}
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '0.35rem 0.75rem', background: CARD_HDR, borderBottom: `1px solid ${BORDER}` }}>
         <span />
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: EYE_COLOR.OD, textAlign: 'center', textTransform: 'uppercase' }}>OD</span>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: EYE_COLOR.OE, textAlign: 'center', textTransform: 'uppercase' }}>OE</span>
+        <span style={{ fontSize: '0.80rem', fontWeight: 800, color: EYE_COLOR.OD, textAlign: 'center', textTransform: 'uppercase' }}>OD</span>
+        <span style={{ fontSize: '0.80rem', fontWeight: 800, color: EYE_COLOR.OE, textAlign: 'center', textTransform: 'uppercase' }}>OE</span>
       </div>
       {rows.map((row, i) => {
         const od = biometry.OD[row.field] as number | undefined
@@ -514,9 +514,9 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
         if (od == null && oe == null) return null
         return (
           <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '0.35rem 0.75rem', background: i % 2 === 0 ? 'rgba(0,0,0,0.018)' : 'transparent', borderBottom: `1px solid ${BORDER}` }}>
-            <span style={{ fontSize: '0.75rem', color: TEXT_MED, fontWeight: 600 }}>{row.label} <span style={{ opacity: 0.55, fontWeight: 400 }}>{row.unit}</span></span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: EYE_COLOR.OD, textAlign: 'center' }}>{fmt(od, row.d)}</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: EYE_COLOR.OE, textAlign: 'center' }}>{fmt(oe, row.d)}</span>
+            <span style={{ fontSize: '0.85rem', color: TEXT_MED, fontWeight: 600 }}>{row.label} <span style={{ opacity: 0.55, fontWeight: 400 }}>{row.unit}</span></span>
+            <span style={{ fontSize: '0.92rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: EYE_COLOR.OD, textAlign: 'center' }}>{fmt(od, row.d)}</span>
+            <span style={{ fontSize: '0.92rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: EYE_COLOR.OE, textAlign: 'center' }}>{fmt(oe, row.d)}</span>
           </div>
         )
       })}
@@ -540,7 +540,7 @@ export default function ValidatePage() {
     return (
       <div style={{ maxWidth: 420, margin: '0 auto', textAlign: 'center', padding: '5rem 1rem' }}>
         <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>📭</div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: TEXT, marginBottom: '0.5rem' }}>Nenhuma biometria carregada</h2>
+        <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: TEXT, marginBottom: '0.5rem' }}>Nenhuma biometria carregada</h2>
         <p style={{ color: TEXT_MED, marginBottom: '1.5rem' }}>Envie um arquivo de exame para continuar.</p>
         <button onClick={() => router.push('/')} className="btn-med-primary" style={{ background: TEAL }}>Ir para upload</button>
       </div>
@@ -569,14 +569,14 @@ export default function ValidatePage() {
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
             background: 'rgba(11,138,126,0.1)', color: TEAL,
-            fontSize: '0.63rem', fontWeight: 800, padding: '0.2rem 0.6rem',
+            fontSize: '0.74rem', fontWeight: 800, padding: '0.2rem 0.6rem',
             borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em',
             marginBottom: '0.55rem',
           }}>
             ✦ {isManualEntry ? 'Entrada Manual' : 'Dados Extraídos por IA'}
           </span>
-          <h1 style={{ fontSize: '1.12rem', fontWeight: 700, color: TEXT }}>Revise os parâmetros biométricos</h1>
-          <p style={{ fontSize: '0.875rem', color: TEXT_MED, marginTop: '0.2rem' }}>Compare os dados extraídos com o exame original abaixo.</p>
+          <h1 style={{ fontSize: '1.2rem', fontWeight: 700, color: TEXT }}>Revise os parâmetros biométricos</h1>
+          <p style={{ fontSize: '0.96rem', color: TEXT_MED, marginTop: '0.2rem' }}>Compare os dados extraídos com o exame original abaixo.</p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
@@ -586,8 +586,8 @@ export default function ValidatePage() {
             { label: 'Exame',    value: meta.equipment ?? meta.filename },
           ].map(({ label, value }, i) => (
             <div key={label} style={{ padding: '0.7rem 1.25rem', borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
-              <p style={{ fontSize: '0.57rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: TEXT_MUTED }}>{label}</p>
-              <p style={{ fontSize: '0.88rem', fontWeight: 700, color: TEXT, marginTop: '0.12rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
+              <p style={{ fontSize: '0.70rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: TEXT_MUTED }}>{label}</p>
+              <p style={{ fontSize: '0.96rem', fontWeight: 700, color: TEXT, marginTop: '0.12rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
             </div>
           ))}
         </div>
@@ -601,7 +601,7 @@ export default function ValidatePage() {
           display: 'flex', gap: '0.65rem', alignItems: 'flex-start',
         }}>
           <span>{isManualEntry ? '✏️' : '⚠️'}</span>
-          <span style={{ fontSize: '0.82rem', color: TEXT }}>
+          <span style={{ fontSize: '0.92rem', color: TEXT }}>
             {isManualEntry
               ? <><strong style={{ color: '#d97706' }}>Entrada manual.</strong> Preencha os campos abaixo com os valores do laudo biométrico.</>
               : <>Campos com <strong style={{ color: '#d97706' }}>!</strong> fora da faixa — verifique antes de calcular.</>
@@ -611,7 +611,7 @@ export default function ValidatePage() {
       )}
 
       {/* ── Legend ──────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', fontSize: '0.67rem', color: TEXT_MUTED, marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', fontSize: '0.78rem', color: TEXT_MUTED, marginBottom: '1rem' }}>
         <span><span style={{ color: TEAL, fontWeight: 800 }}>✓</span> OK</span>
         <span><span style={{ color: '#d97706', fontWeight: 800 }}>!</span> Alerta Clínico</span>
         <span>Inputs editáveis — arraste ou digite</span>
