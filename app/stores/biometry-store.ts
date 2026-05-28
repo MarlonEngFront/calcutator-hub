@@ -64,6 +64,7 @@ export interface CalculationResult {
   calculatorLabel: string
   lensCode?: string
   lensFamily?: string
+  lensBrand?: string
   lensAConstant?: number
   status: 'completed' | 'failed' | 'partial'
   results: Array<{

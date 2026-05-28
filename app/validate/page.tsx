@@ -106,9 +106,9 @@ function BioInput({ field, value, onChange, showStatus = true, compact }: BioInp
         onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
         className={`input-biometric ${status === 'warn' ? 'warn' : ''}`}
         style={{
-          maxWidth: compact ? 58 : 72, minWidth: compact ? 48 : 58,
-          textAlign: 'center', fontSize: '0.96rem',
-          padding: '0.18rem 0.1rem', height: '1.85rem',
+          maxWidth: compact ? 52 : 63, minWidth: compact ? 42 : 50,
+          textAlign: 'center', fontSize: '0.92rem',
+          padding: '0.18rem 0.1rem', height: '1.75rem',
           background: '#fff', color: TEXT, border: `1px solid ${BORDER}`,
           borderRadius: 6,
         }}
@@ -353,17 +353,17 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.96rem' }}>
           <thead>
             <tr style={{ background: CARD_HDR }}>
-              <th style={{ textAlign: 'left', padding: '0.32rem 0.75rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Parâmetro</th>
-              <th style={{ textAlign: 'center', padding: '0.32rem 0.4rem', color: eyeColor, fontWeight: 800, fontSize: '0.85rem', borderBottom: `2px solid ${eyeColor}`, minWidth: 160 }}>{eyeLabel}</th>
-              <th style={{ textAlign: 'right', padding: '0.32rem 0.75rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ref.</th>
+              <th style={{ textAlign: 'left', padding: '0.32rem 0.45rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Parâmetro</th>
+              <th style={{ textAlign: 'center', padding: '0.32rem 0.3rem', color: eyeColor, fontWeight: 800, fontSize: '0.85rem', borderBottom: `2px solid ${eyeColor}`, minWidth: 130 }}>{eyeLabel}</th>
+              <th style={{ textAlign: 'right', padding: '0.32rem 0.45rem', color: TEXT_MUTED, fontWeight: 600, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ref.</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={row.label} style={{ background: i % 2 === 0 ? 'rgba(0,0,0,0.018)' : 'transparent', borderBottom: `1px solid ${BORDER}` }}>
-                <td style={{ padding: '0.28rem 0.75rem', fontWeight: 600, fontSize: '0.86rem', color: TEXT_MED, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{row.label}</td>
-                <td style={{ padding: '0.22rem 0.35rem', textAlign: 'center', verticalAlign: 'middle' }}>{row.node}</td>
-                <td style={{ padding: '0.28rem 0.75rem', color: TEXT_MUTED, fontSize: '0.70rem', whiteSpace: 'nowrap', textAlign: 'right', verticalAlign: 'middle' }}>{row.ref ?? '—'}</td>
+                <td style={{ padding: '0.28rem 0.45rem', fontWeight: 600, fontSize: '0.86rem', color: TEXT_MED, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{row.label}</td>
+                <td style={{ padding: '0.22rem 0.25rem', textAlign: 'center', verticalAlign: 'middle' }}>{row.node}</td>
+                <td style={{ padding: '0.28rem 0.45rem', color: TEXT_MUTED, fontSize: '0.70rem', whiteSpace: 'nowrap', textAlign: 'right', verticalAlign: 'middle' }}>{row.ref ?? '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -620,7 +620,7 @@ export default function ValidatePage() {
       {/* ── 3-column grid ───────────────────────────────────────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isPanelExpanded ? '1fr 2.2fr 1fr' : '1fr 240px 1fr',
+        gridTemplateColumns: isPanelExpanded ? '1fr 1.7fr 1fr' : '1fr 200px 1fr',
         gap: '1.1rem', alignItems: 'start',
         transition: 'grid-template-columns 0.5s cubic-bezier(0.4,0,0.2,1)',
       }}>

@@ -456,6 +456,32 @@ export default function CalculatorsPage() {
 
   const handleCalculate = async () => {
     if (!canCalculate) return
+
+    // ── Pre-flight biometry validation ────────────────────────────────────────
+    const GATEWAY_RANGES: Record<string, [number, number]> = {
+      AL:  [14, 38], K1: [25, 65], K2: [25, 65],
+      ACD: [0.5, 8], WTW: [5, 17], LT: [1, 10],
+    }
+    const fieldLabels: Record<string, string> = {
+      AL: 'Comprimento Axial', K1: 'K1', K2: 'K2',
+      ACD: 'ACD', WTW: 'WTW', LT: 'LT',
+    }
+    const invalidFields: string[] = []
+    for (const eye of ['OD', 'OE'] as const) {
+      for (const [field, [min, max]] of Object.entries(GATEWAY_RANGES)) {
+        const val = biometry[eye][field as keyof ParsedBiometry['OD']] as number | undefined
+        if (val == null || val < min || val > max) {
+          invalidFields.push(`${eye} ${fieldLabels[field]} = ${val ?? '—'} (esperado ${min}–${max})`)
+        }
+      }
+    }
+    if (invalidFields.length > 0) {
+      setCalcError(
+        `Campos fora do range aceito pelo gateway — volte e corrija:\n• ${invalidFields.join('\n• ')}`
+      )
+      return
+    }
+
     setIsCalculating(true)
     setCalcError(null)
 
@@ -531,6 +557,7 @@ export default function CalculatorsPage() {
               calculatorLabel: selectedGateway[0] ?? 'Calculadora',
               lensCode: pickedLens.code,
               lensFamily: pickedLens.family,
+              lensBrand: pickedLens.manufacturer,
               lensAConstant: pickedLens.aConstant,
               status: 'failed' as const,
               results: [],
@@ -544,6 +571,7 @@ export default function CalculatorsPage() {
             calculatorLabel: r?.calculator?.label ?? id,
             lensCode: pickedLens.code,
             lensFamily: pickedLens.family,
+            lensBrand: pickedLens.manufacturer,
             lensAConstant: pickedLens.aConstant,
             status: r?.status ?? 'failed',
             results: r?.results ?? [],
@@ -564,6 +592,7 @@ export default function CalculatorsPage() {
           calculatorLabel: calcId,
           lensCode: lens?.code,
           lensFamily: lens?.family,
+          lensBrand: lens?.manufacturer,
           lensAConstant: lens?.aConstant,
           status: 'failed' as const,
           results: [],
@@ -703,9 +732,10 @@ export default function CalculatorsPage() {
       {/* Error */}
       {calcError && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-start gap-3 text-sm text-red-800">
-          <span>⚠️</span>
+          <span className="mt-0.5">⚠️</span>
           <div>
-            <strong>Erro no cálculo:</strong> {calcError}
+            <strong>Erro no cálculo:</strong>
+            <span className="whitespace-pre-line ml-1">{calcError}</span>
           </div>
         </div>
       )}

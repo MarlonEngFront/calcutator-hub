@@ -312,7 +312,7 @@ function CalcBlock({ calc }: CalcBlockProps) {
   const lensFamily    = calc.lensFamily    ?? selectedIOL?.model               ?? '—'
   const lensCode      = calc.lensCode      ?? selectedIOL?.manufacturerCode    ?? '—'
   const lensAConst    = calc.lensAConstant ?? selectedIOL?.aConstant
-  const lensMfr       = selectedIOL?.manufacturer ?? '—'
+  const lensMfr       = calc.lensBrand ?? selectedIOL?.manufacturer ?? '—'
 
   const kSource = detectKSource(biometry, kReadings)
   const paramRows = [
