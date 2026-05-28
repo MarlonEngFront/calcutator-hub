@@ -62,6 +62,9 @@ export interface CalculationResult {
   requestId: string
   calculatorId: string
   calculatorLabel: string
+  lensCode?: string
+  lensFamily?: string
+  lensAConstant?: number
   status: 'completed' | 'failed' | 'partial'
   results: Array<{
     eye: 'OD' | 'OE'
@@ -256,7 +259,12 @@ export const useBiometryStore = create<BiometryStore>()(
         originalSurgeryParams: state.originalSurgeryParams,
         surgicalPresets: state.surgicalPresets,
         activeSurgicalPreset: state.activeSurgicalPreset,
-        fileDataUrl: state.fileDataUrl,
+        // Strip screenshotDataUrl (base64 PNGs) before persisting to avoid localStorage quota
+        calculationResults: state.calculationResults.map((r) => ({
+          ...r,
+          results: r.results.map(({ screenshotDataUrl: _ss, ...eye }) => eye),
+        })),
+        // fileDataUrl is a blob URL — invalid after reload, not persisted (same as jjvisionpro)
       }),
     }
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { ParsedBiometry, BiometryMeta, SurgeryParams, KeratometryReadings, KeratometryReading } from '@/app/stores/biometry-store'
@@ -420,25 +420,8 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
 interface ExamViewerPanelProps { fileDataUrl: string | null; meta: BiometryMeta; biometry: ParsedBiometry; isExpanded: boolean; onToggleExpand: () => void }
 function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpand }: ExamViewerPanelProps) {
   const isPDF   = meta.fileType === 'application/pdf'
-
-  // Chrome blocks data: URI in iframes outside localhost. Convert to blob URL.
-  const pdfBlobUrl = useMemo(() => {
-    if (!fileDataUrl || !isPDF) return null
-    try {
-      const comma = fileDataUrl.indexOf(',')
-      if (comma < 0) return null
-      const mime = fileDataUrl.slice(0, comma).match(/:(.*?);/)?.[1] ?? 'application/pdf'
-      const b64  = fileDataUrl.slice(comma + 1)
-      const bin  = atob(b64)
-      const bytes = new Uint8Array(bin.length)
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-      return URL.createObjectURL(new Blob([bytes], { type: mime }))
-    } catch { return null }
-  }, [fileDataUrl, isPDF])
-
-  useEffect(() => {
-    return () => { if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl) }
-  }, [pdfBlobUrl])
+  // fileDataUrl is now a blob: URL (created via URL.createObjectURL in upload page)
+  // No conversion needed — works directly in embed/img
 
   const rows: Array<{ label: string; field: keyof ParsedBiometry['OD']; unit: string; d: number }> = [
     { label: 'AL',  field: 'AL',  unit: 'mm', d: 2 },
@@ -474,7 +457,7 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
           <span style={{ fontSize: '0.67rem', fontWeight: 700, color: TEXT_MED, flex: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Biometria Original
           </span>
-          <a href={isPDF ? (pdfBlobUrl ?? fileDataUrl!) : fileDataUrl!} target="_blank" rel="noopener noreferrer"
+          <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
             style={{ fontSize: '0.64rem', color: TEXT_MED, padding: '0.22rem 0.55rem', borderRadius: 4, border: `1px solid ${BORDER}`, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             ↗ Nova Aba
           </a>
@@ -494,7 +477,13 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
           height: isExpanded ? '78vh' : '400px',
           transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
         }}>
-          {isPDF && <iframe src={pdfBlobUrl ?? fileDataUrl!} className="w-full h-full border-0" title="Biometria original" />}
+          {isPDF && fileDataUrl && (
+            <embed
+              src={fileDataUrl}
+              type="application/pdf"
+              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+            />
+          )}
           {isImage && (
             <div className="w-full h-full overflow-y-auto flex items-start justify-center" style={{ cursor: 'zoom-in' }} onClick={onToggleExpand}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

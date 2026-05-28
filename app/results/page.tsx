@@ -308,15 +308,21 @@ function CalcBlock({ calc }: CalcBlockProps) {
   const gradient = meta?.color ?? 'from-slate-600 to-slate-800'
   const label = calc.calculatorLabel || meta?.label || calc.calculatorId
 
+  // Prefer per-result lens data (multi-lens support) over store selectedIOL
+  const lensFamily    = calc.lensFamily    ?? selectedIOL?.model               ?? '—'
+  const lensCode      = calc.lensCode      ?? selectedIOL?.manufacturerCode    ?? '—'
+  const lensAConst    = calc.lensAConstant ?? selectedIOL?.aConstant
+  const lensMfr       = selectedIOL?.manufacturer ?? '—'
+
   const kSource = detectKSource(biometry, kReadings)
   const paramRows = [
     { label: 'Exame selecionado', value: bioMeta?.equipment ?? bioMeta?.filename ?? '—' },
     { label: 'K/Tk selecionado',  value: kSource },
     { label: 'Calculadora',        value: label },
-    { label: 'Fabricante',         value: selectedIOL?.manufacturer ?? '—' },
-    { label: 'Lente',              value: selectedIOL?.model ?? '—' },
-    { label: 'Código lente',       value: selectedIOL?.manufacturerCode ?? '—' },
-    { label: 'A Constant',         value: selectedIOL?.aConstant != null ? selectedIOL.aConstant.toFixed(2) : '—' },
+    { label: 'Fabricante',         value: lensMfr },
+    { label: 'Lente',              value: lensFamily },
+    { label: 'Código lente',       value: lensCode },
+    { label: 'A Constant',         value: lensAConst != null ? lensAConst.toFixed(2) : '—' },
     { label: 'K Index',            value: '1,3375' },
     { label: 'Cylinder',           value: '+VE' },
     { label: 'SIA',                value: `${surgeryParams.SIA} D @ ${surgeryParams.SIAAxis}°` },
@@ -341,6 +347,10 @@ function CalcBlock({ calc }: CalcBlockProps) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-white font-bold text-lg">{label}</h3>
+            <p className="text-white/80 text-sm mt-0.5 font-medium">
+              {lensFamily !== '—' ? lensFamily : ''}
+              {lensCode !== '—' && lensFamily !== lensCode ? <span className="text-white/50 ml-1 font-normal text-xs">({lensCode})</span> : null}
+            </p>
             {meta?.url && <p className="text-white/60 text-xs mt-0.5">{meta.url}</p>}
           </div>
           <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusBadge.cls}`}>
@@ -521,7 +531,7 @@ export default function ResultsPage() {
       {hasResults && (
         <div className="space-y-6">
           {calculationResults.map((calc) => (
-            <CalcBlock key={`${calc.calculatorId}-${calc.requestId}`} calc={calc} />
+            <CalcBlock key={`${calc.calculatorId}-${calc.lensCode ?? ''}-${calc.requestId}`} calc={calc} />
           ))}
         </div>
       )}

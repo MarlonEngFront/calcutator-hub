@@ -14,7 +14,7 @@
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://storage.googleapis.com; connect-src 'self' https://api.voiston.ai https://storage.googleapis.com https://*.sentry.io https://www.google-analytics.com https://*.southamerica-east1.run.app; frame-src 'self' blob:; frame-ancestors *"
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://storage.googleapis.com; connect-src 'self' https://api.voiston.ai https://storage.googleapis.com https://*.sentry.io https://www.google-analytics.com https://*.southamerica-east1.run.app; frame-src 'self' blob:; object-src 'self' blob:; frame-ancestors *"
           }
         ]
       }

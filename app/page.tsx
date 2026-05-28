@@ -90,12 +90,9 @@ export default function UploadPage() {
       }
       setError(null)
       setCurrentFile(file.name)
-      // Read file for inline preview on validate page (stored in memory, not persisted)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        if (e.target?.result) setFileDataUrl(e.target.result as string)
-      }
-      reader.readAsDataURL(file)
+      // Blob URL for inline preview — no base64 conversion, works in embed/img, not persisted
+      const blobUrl = URL.createObjectURL(file)
+      setFileDataUrl(blobUrl)
       managerRef.current?.cancel()
 
       const manager = new HubUploadManager({

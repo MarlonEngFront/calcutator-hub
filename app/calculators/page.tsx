@@ -459,75 +459,126 @@ export default function CalculatorsPage() {
     setIsCalculating(true)
     setCalcError(null)
 
-    const primaryLens = selectedLenses[0]
-    const baseIol =
-      IOL_CATALOG.find((i) => i.manufacturerCode === primaryLens.code) ?? {
-        id: primaryLens.code,
-        model: primaryLens.family,
-        manufacturer: primaryLens.manufacturer,
-        manufacturerCode: primaryLens.code,
-        type: 'toric' as const,
-        aConstant: primaryLens.aConstant ?? 119.1,
-      }
-
-    // Map primary lens → per-calc lens. Falls back to global lens constants if no catalog match.
-    const lensOverrides = Object.fromEntries(
-      selectedGateway.map((calcId) => {
-        const matched = matchLensToCalc(calcId, primaryLens) ?? primaryLens
-        return [
-          calcId,
-          {
-            id: matched.code,
-            brand: matched.manufacturer,
-            family: matched.family,
-            a_constant: matched.aConstant ?? 119.1,
-            toric_available: matched.haigisA0 == null,
-            code: matched.code,
-            ...(matched.haigisA0 != null
-              ? { haigisA0: matched.haigisA0, haigisA1: matched.haigisA1, haigisA2: matched.haigisA2 }
-              : {}),
-          },
-        ]
-      })
-    )
-
     try {
-      const requestId = `voiston-hub-${Date.now()}`
-      const lens = buildLens(baseIol)
       const eyes = { OD: buildEye(biometry.OD, surgeryParams, 'OD'), OE: buildEye(biometry.OE, surgeryParams, 'OE') }
-      const base = {
-        requestId,
-        source: { app: 'calculator-hub', environment: 'unknown' as const },
-        patient: { isDemoData: meta.filename === 'demo-biometry.json' },
-        lens,
-        ...(Object.keys(lensOverrides).length > 0 ? { lensOverrides } : {}),
-        eyes,
+
+      // ── Run one request per selected lens (up to 3), in parallel ──────────────
+      // Use allSettled so a single lens failure doesn't discard other results
+      const settled = await Promise.allSettled(
+        selectedLenses.map(async (pickedLens, lensIdx) => {
+          const iol =
+            IOL_CATALOG.find((i) => i.manufacturerCode === pickedLens.code) ?? {
+              id: pickedLens.code,
+              model: pickedLens.family,
+              manufacturer: pickedLens.manufacturer,
+              manufacturerCode: pickedLens.code,
+              type: 'toric' as const,
+              aConstant: pickedLens.aConstant ?? 119.1,
+            }
+
+          // Per-calculator lens overrides (catalog-matched constants)
+          const lensOverrides = Object.fromEntries(
+            selectedGateway.map((calcId) => {
+              const matched = matchLensToCalc(calcId, pickedLens) ?? pickedLens
+              return [
+                calcId,
+                {
+                  id: matched.code,
+                  brand: matched.manufacturer,
+                  family: matched.family,
+                  a_constant: matched.aConstant ?? 119.1,
+                  toric_available: matched.haigisA0 == null,
+                  code: matched.code,
+                  ...(matched.haigisA0 != null
+                    ? { haigisA0: matched.haigisA0, haigisA1: matched.haigisA1, haigisA2: matched.haigisA2 }
+                    : {}),
+                },
+              ]
+            })
+          )
+
+          const requestId = `voiston-hub-${Date.now()}-${lensIdx}`
+          const lens = buildLens(iol)
+          const base = {
+            requestId,
+            source: { app: 'calculator-hub', environment: 'unknown' as const },
+            patient: { isDemoData: meta.filename === 'demo-biometry.json' },
+            lens,
+            ...(Object.keys(lensOverrides).length > 0 ? { lensOverrides } : {}),
+            eyes,
+          }
+
+          let data
+          if (selectedGateway.length > 1) {
+            data = await calculateBundle({ ...base, calculators: selectedGateway.map((id) => ({ id })) })
+          } else {
+            const single = await calculateSingle({ ...base, calculator: { id: selectedGateway[0] } })
+            data = {
+              bundleId: requestId,
+              status: single.status,
+              results: { [selectedGateway[0]]: single },
+              audit: { executedAt: single.audit.executedAt, durationMs: 0, method: single.audit.method, notes: single.audit.notes },
+            }
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const entries = Object.entries(data.results as Record<string, any>)
+          if (entries.length === 0) {
+            // Gateway returned empty results — create a failed placeholder so UI shows feedback
+            return [{
+              requestId,
+              calculatorId: selectedGateway[0] ?? 'unknown',
+              calculatorLabel: selectedGateway[0] ?? 'Calculadora',
+              lensCode: pickedLens.code,
+              lensFamily: pickedLens.family,
+              lensAConstant: pickedLens.aConstant,
+              status: 'failed' as const,
+              results: [],
+              audit: { executedAt: new Date().toISOString(), method: 'gateway', notes: ['Nenhum resultado retornado'] },
+            }]
+          }
+
+          return entries.map(([id, r]) => ({
+            requestId: r?.requestId ?? requestId,
+            calculatorId: id,
+            calculatorLabel: r?.calculator?.label ?? id,
+            lensCode: pickedLens.code,
+            lensFamily: pickedLens.family,
+            lensAConstant: pickedLens.aConstant,
+            status: r?.status ?? 'failed',
+            results: r?.results ?? [],
+            audit: r?.audit ?? { executedAt: new Date().toISOString(), method: '', notes: [] },
+            ...(r?.status === 'failed' ? { error: r?.audit?.notes?.join(' ') ?? 'Falhou' } : {}),
+          }))
+        })
+      )
+
+      // Collect successful results + synthetic failed entries for rejected promises
+      const allResults = settled.flatMap((s, i) => {
+        if (s.status === 'fulfilled') return s.value
+        const lens = selectedLenses[i]
+        // Failed lens request — create placeholder so user sees the error in results page
+        return selectedGateway.map((calcId) => ({
+          requestId: `voiston-hub-err-${Date.now()}-${i}`,
+          calculatorId: calcId,
+          calculatorLabel: calcId,
+          lensCode: lens?.code,
+          lensFamily: lens?.family,
+          lensAConstant: lens?.aConstant,
+          status: 'failed' as const,
+          results: [],
+          audit: { executedAt: new Date().toISOString(), method: 'gateway', notes: [] },
+          error: s.reason instanceof Error ? s.reason.message : 'Erro ao calcular',
+        }))
+      })
+
+      if (allResults.length === 0) {
+        setCalcError('Nenhum resultado retornado pelo gateway. Verifique as seleções.')
+        setIsCalculating(false)
+        return
       }
 
-      let data
-      if (selectedGateway.length > 1) {
-        data = await calculateBundle({ ...base, calculators: selectedGateway.map((id) => ({ id })) })
-      } else {
-        const single = await calculateSingle({ ...base, calculator: { id: selectedGateway[0] } })
-        data = {
-          bundleId: requestId,
-          status: single.status,
-          results: { [selectedGateway[0]]: single },
-          audit: { executedAt: single.audit.executedAt, durationMs: 0, method: single.audit.method, notes: single.audit.notes },
-        }
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const results = Object.entries(data.results as Record<string, any>).map(([id, r]) => ({
-        requestId: r.requestId,
-        calculatorId: id,
-        calculatorLabel: r.calculator?.label ?? id,
-        status: r.status,
-        results: r.results ?? [],
-        audit: r.audit ?? { executedAt: new Date().toISOString(), method: '', notes: [] },
-      }))
-
-      setCalculationResults(results)
+      setCalculationResults(allResults)
       router.push('/results')
     } catch (err) {
       setCalcError(err instanceof Error ? err.message : 'Erro ao calcular')
@@ -683,6 +734,20 @@ export default function CalculatorsPage() {
       {selectedLenses.length === 0 && selectedAvailable.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
           ⚠️ Selecione ao menos uma lente no passo 1 para calcular.
+        </div>
+      )}
+
+      {/* Slow-calc warning: multiple lenses × multiple calculators */}
+      {selectedLenses.length > 1 && selectedGateway.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 text-sm text-blue-800 flex items-start gap-2">
+          <span className="shrink-0">🕐</span>
+          <span>
+            <strong>{selectedLenses.length} lentes × {selectedGateway.length} calculadora{selectedGateway.length > 1 ? 's' : ''}</strong>
+            {' '}— cálculos rodam em paralelo por lente.
+            {selectedGateway.some((id) => ['escrs', 'jj-tecnis', 'apacrs-true-k', 'apacrs-toric'].includes(id))
+              ? ' Calculadoras com captura de tela (~10-15s cada) podem aumentar o tempo total.'
+              : ' Estimativa: ~2-5s por lente.'}
+          </span>
         </div>
       )}
       {/* Actions */}
