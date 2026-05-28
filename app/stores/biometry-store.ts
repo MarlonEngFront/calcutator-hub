@@ -256,6 +256,7 @@ export const useBiometryStore = create<BiometryStore>()(
         originalSurgeryParams: state.originalSurgeryParams,
         surgicalPresets: state.surgicalPresets,
         activeSurgicalPreset: state.activeSurgicalPreset,
+        fileDataUrl: state.fileDataUrl,
       }),
     }
   )

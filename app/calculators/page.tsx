@@ -7,6 +7,7 @@ import { IOL_CATALOG } from '@/app/lib/iol-catalog'
 import {
   getManufacturers,
   getLensesByManufacturer,
+  getLensesForCalculator,
   matchLensToCalc,
   type CalcLens,
 } from '@/app/lib/calculator-lens-catalogs'
@@ -436,6 +437,23 @@ export default function CalculatorsPage() {
 
   const canCalculate = selectedLenses.length > 0 && selectedGateway.length > 0
 
+  // ── Compatibility warnings (lens not in calculator catalog) ──────────────────
+  const compatibilityWarnings: Array<{ calcId: string; calcName: string; suggestions: string }> = []
+  if (selectedLenses.length > 0 && selectedGateway.length > 0) {
+    const primary = selectedLenses[0]
+    for (const calcId of selectedGateway) {
+      const matched = matchLensToCalc(calcId, primary)
+      if (!matched) {
+        const catalog = getLensesForCalculator(calcId)
+        const suggestions = catalog.length > 0
+          ? catalog.slice(0, 5).map((l) => l.family).join(', ')
+          : '—'
+        const calcName = CALCULATORS.find((c) => c.id === calcId)?.name ?? calcId
+        compatibilityWarnings.push({ calcId, calcName, suggestions })
+      }
+    }
+  }
+
   const handleCalculate = async () => {
     if (!canCalculate) return
     setIsCalculating(true)
@@ -640,6 +658,26 @@ export default function CalculatorsPage() {
           </div>
         </div>
       )}
+
+      {/* Compatibility warnings */}
+      {compatibilityWarnings.map(({ calcId, calcName, suggestions }) => (
+        <div
+          key={calcId}
+          className="bg-amber-50 border border-amber-300 rounded-xl px-5 py-4 flex items-start gap-3 text-sm"
+        >
+          <span className="text-amber-500 text-lg shrink-0 mt-0.5">⚠️</span>
+          <div>
+            <p className="font-semibold text-amber-900">
+              Lente <span className="font-mono">{selectedLenses[0]?.family}</span> não está no catálogo de{' '}
+              <span className="font-semibold">{calcName}</span>
+            </p>
+            <p className="text-amber-700 mt-0.5">
+              O cálculo será tentado mas provavelmente falhará. Lentes compatíveis:{' '}
+              <span className="font-mono font-semibold">{suggestions}</span>
+            </p>
+          </div>
+        </div>
+      ))}
 
       {/* Hints */}
       {selectedLenses.length === 0 && selectedAvailable.length > 0 && (

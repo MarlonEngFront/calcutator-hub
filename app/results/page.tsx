@@ -3,7 +3,17 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
-import type { CalculationResult } from '@/app/stores/biometry-store'
+import type { CalculationResult, ParsedBiometry, KeratometryReadings } from '@/app/stores/biometry-store'
+
+// ── K source detection ─────────────────────────────────────────────────────────
+function detectKSource(biometry: ParsedBiometry | null, kReadings: KeratometryReadings | null): string {
+  if (!kReadings || !biometry) return 'K1/K2 anterior'
+  const k24 = kReadings.ref2dot4?.OD
+  const k33 = kReadings.ref3dot3?.OD
+  if (k24?.K1 != null && Math.abs(k24.K1 - biometry.OD.K1) < 0.03) return 'K1 / K2 — Ref 2,4 mm'
+  if (k33?.K1 != null && Math.abs(k33.K1 - biometry.OD.K1) < 0.03) return 'K1 / K2 — Ref 3,3 mm'
+  return 'K1/K2 anterior'
+}
 
 // ── Calculator display metadata ────────────────────────────────────────────────
 const CALC_META: Record<string, { label: string; color: string; url: string }> = {
@@ -15,10 +25,25 @@ const CALC_META: Record<string, { label: string; color: string; url: string }> =
   'apacrs-toric':       { label: 'APACRS Toric',        color: 'from-cyan-600 to-cyan-800',    url: 'calc.apacrs.org' },
 }
 
-// ── Multi-formula table (BRASCRS calcs) ───────────────────────────────────────
-interface MultiFormulaRow { formula: string; elp: number; iolPower: number }
+// ── Multi-formula table (BRASCRS / ESCRS calcs) ───────────────────────────────
+interface MultiFormulaRow {
+  formula: string
+  elp?: number | null
+  iolPower?: number | null
+  predictedRefraction?: number | null
+  residualAstigmatism?: number | null
+  [key: string]: unknown
+}
+
+function fmt(v: number | null | undefined, dec = 2) {
+  return v != null && typeof v === 'number' ? v.toFixed(dec) : '—'
+}
 
 function MultiFormulaTable({ rows }: { rows: MultiFormulaRow[] }) {
+  const hasElp  = rows.some((r) => r.elp != null)
+  const hasRef  = rows.some((r) => r.predictedRefraction != null)
+  const hasIol  = rows.some((r) => r.iolPower != null)
+
   return (
     <div className="mt-3 pt-3 border-t border-inherit">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Resultados por Fórmula</p>
@@ -26,16 +51,27 @@ function MultiFormulaTable({ rows }: { rows: MultiFormulaRow[] }) {
         <thead>
           <tr className="text-xs text-gray-400 border-b border-gray-100">
             <th className="text-left py-1 font-semibold">Fórmula</th>
-            <th className="text-right py-1 font-semibold">ELP</th>
-            <th className="text-right py-1 font-semibold">LIO (D)</th>
+            {hasElp  && <th className="text-right py-1 font-semibold">ELP</th>}
+            {hasIol  && <th className="text-right py-1 font-semibold">LIO (D)</th>}
+            {hasRef  && <th className="text-right py-1 font-semibold">Refr.</th>}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.formula} className="border-b border-gray-50 last:border-0">
-              <td className="py-1.5 font-medium text-gray-700">{row.formula}</td>
-              <td className="py-1.5 text-right font-mono text-gray-500">{row.elp.toFixed(2)}</td>
-              <td className="py-1.5 text-right font-mono font-bold text-gray-900">{row.iolPower.toFixed(2)}</td>
+          {rows.map((row, i) => (
+            <tr key={row.formula ?? i} className="border-b border-gray-50 last:border-0">
+              <td className="py-1.5 font-medium text-gray-700">{row.formula ?? '—'}</td>
+              {hasElp && <td className="py-1.5 text-right font-mono text-gray-500">{fmt(row.elp)}</td>}
+              {hasIol && <td className="py-1.5 text-right font-mono font-bold text-gray-900">{fmt(row.iolPower)}</td>}
+              {hasRef && (
+                <td className={`py-1.5 text-right font-mono text-xs ${
+                  row.predictedRefraction != null && Math.abs(row.predictedRefraction as number) > 0.5
+                    ? 'text-amber-600' : 'text-green-600'
+                }`}>
+                  {row.predictedRefraction != null
+                    ? `${(row.predictedRefraction as number) >= 0 ? '+' : ''}${fmt(row.predictedRefraction)}`
+                    : '—'}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -51,15 +87,59 @@ interface EyeResultProps {
   calcId: string
 }
 
+function downloadScreenshot(dataUrl: string, eye: string, calcId: string) {
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = `${calcId}-${eye}.png`
+  a.click()
+}
+
+function printScreenshot(dataUrl: string, label: string, eye: string) {
+  const win = window.open('', '_blank')
+  if (!win) return
+  win.document.write(
+    `<html><head><title>${label} - ${eye}</title>` +
+    `<style>body{margin:0;padding:0;}img{width:100%;display:block;}</style>` +
+    `</head><body><img src="${dataUrl}" /></body></html>`
+  )
+  win.document.close()
+  win.focus()
+  setTimeout(() => { win.print() }, 300)
+}
+
 function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
   const meta = CALC_META[calcId]
   const eyeColor = eye === 'OD' ? 'border-blue-300 bg-blue-50' : 'border-indigo-300 bg-indigo-50'
-  const eyeBadge = eye === 'OD'
-    ? 'bg-blue-600 text-white'
-    : 'bg-indigo-600 text-white'
-  const [showScreenshot, setShowScreenshot] = useState(false)
+  const eyeBadge = eye === 'OD' ? 'bg-blue-600 text-white' : 'bg-indigo-600 text-white'
+  const [showScreenshot, setShowScreenshot] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+
+  const label = meta?.label ?? calcId
 
   return (
+    <>
+      {/* Lightbox modal */}
+      {showModal && result.screenshotDataUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowModal(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-3xl font-light leading-none hover:text-gray-300"
+            onClick={() => setShowModal(false)}
+          >
+            ✕
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={result.screenshotDataUrl}
+            alt={`${label} - ${eye}`}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
     <div className={`rounded-xl border-2 ${eyeColor} overflow-hidden`}>
       {/* Eye header */}
       <div className="px-4 py-2 flex items-center gap-2 border-b border-inherit">
@@ -72,19 +152,56 @@ function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
             onClick={() => setShowScreenshot((v) => !v)}
             className="ml-auto text-xs text-blue-600 hover:underline"
           >
-            {showScreenshot ? '🔼 Ocultar' : '🖼 Ver resultado'}
+            {showScreenshot ? '🔼 Ocultar print' : '🖼 Ver print'}
           </button>
         )}
       </div>
 
-      {/* Screenshot — lazy: only render when toggled */}
+      {/* Screenshot section */}
       {result.screenshotDataUrl && showScreenshot && (
-        <div className="border-b border-inherit">
+        <div className="border-b border-inherit bg-slate-800">
+          {/* Source + action bar */}
+          <div className="px-4 py-2 flex items-center justify-between gap-3 border-b border-slate-700">
+            {meta?.url && (
+              <span className="text-xs text-slate-400">
+                Fonte:{' '}
+                <a
+                  href={`https://${meta.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-400 hover:underline"
+                >
+                  {meta.url}
+                </a>
+              </span>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <button
+                onClick={() => setShowModal(true)}
+                className="px-3 py-1 text-xs font-medium rounded-full border border-slate-500 text-slate-200 hover:bg-slate-700 transition-colors"
+              >
+                Ampliar
+              </button>
+              <button
+                onClick={() => downloadScreenshot(result.screenshotDataUrl!, eye, calcId)}
+                className="px-3 py-1 text-xs font-medium rounded-full border border-slate-500 text-slate-200 hover:bg-slate-700 transition-colors"
+              >
+                Baixar
+              </button>
+              <button
+                onClick={() => printScreenshot(result.screenshotDataUrl!, label, eye)}
+                className="px-3 py-1 text-xs font-medium rounded-full border border-slate-500 text-slate-200 hover:bg-slate-700 transition-colors"
+              >
+                Imprimir
+              </button>
+            </div>
+          </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={result.screenshotDataUrl}
-            alt={`Screenshot ${eye} - ${meta?.label ?? calcId}`}
-            className="w-full object-contain max-h-96 bg-white"
+            alt={`${label} - ${eye}`}
+            className="w-full object-contain max-h-96 bg-white cursor-zoom-in"
+            onClick={() => setShowModal(true)}
           />
         </div>
       )}
@@ -98,10 +215,14 @@ function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
           />
         )}
 
-        {/* Single IOL power — shown only when no multi-formula table */}
-        {result.iolPower !== undefined && !Array.isArray((result.raw as Record<string, unknown>)?.multiFormulaResults) && (
+        {/* IOL power — always shown when present */}
+        {result.iolPower !== undefined && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Potência IOL</span>
+            <span className="text-sm text-gray-600">
+              {Array.isArray((result.raw as Record<string, unknown>)?.multiFormulaResults)
+                ? 'Potência IOL recomendada'
+                : 'Potência IOL'}
+            </span>
             <span className="font-mono font-bold text-xl text-gray-900">
               {result.iolPower.toFixed(2)} D
             </span>
@@ -170,6 +291,7 @@ function EyeResultCard({ eye, result, calcId }: EyeResultProps) {
         )}
       </div>
     </div>
+    </>
   )
 }
 
@@ -179,9 +301,28 @@ interface CalcBlockProps {
 }
 
 function CalcBlock({ calc }: CalcBlockProps) {
+  const { biometry, meta: bioMeta, surgeryParams, selectedIOL, kReadings } = useBiometryStore()
+  const [showParams, setShowParams] = useState(false)
+
   const meta = CALC_META[calc.calculatorId]
   const gradient = meta?.color ?? 'from-slate-600 to-slate-800'
   const label = calc.calculatorLabel || meta?.label || calc.calculatorId
+
+  const kSource = detectKSource(biometry, kReadings)
+  const paramRows = [
+    { label: 'Exame selecionado', value: bioMeta?.equipment ?? bioMeta?.filename ?? '—' },
+    { label: 'K/Tk selecionado',  value: kSource },
+    { label: 'Calculadora',        value: label },
+    { label: 'Fabricante',         value: selectedIOL?.manufacturer ?? '—' },
+    { label: 'Lente',              value: selectedIOL?.model ?? '—' },
+    { label: 'Código lente',       value: selectedIOL?.manufacturerCode ?? '—' },
+    { label: 'A Constant',         value: selectedIOL?.aConstant != null ? selectedIOL.aConstant.toFixed(2) : '—' },
+    { label: 'K Index',            value: '1,3375' },
+    { label: 'Cylinder',           value: '+VE' },
+    { label: 'SIA',                value: `${surgeryParams.SIA} D @ ${surgeryParams.SIAAxis}°` },
+    { label: 'Refração Alvo OD',   value: `${surgeryParams.OD.refTarget >= 0 ? '+' : ''}${surgeryParams.OD.refTarget.toFixed(2)} D` },
+    { label: 'Refração Alvo OE',   value: `${surgeryParams.OE.refTarget >= 0 ? '+' : ''}${surgeryParams.OE.refTarget.toFixed(2)} D` },
+  ]
 
   const odResult = calc.results.find((r) => r.eye === 'OD')
   const oeResult = calc.results.find((r) => r.eye === 'OE')
@@ -231,6 +372,30 @@ function CalcBlock({ calc }: CalcBlockProps) {
           ))}
         </div>
       )}
+
+      {/* Params accordion */}
+      <div className="mx-6 mt-4 rounded-xl overflow-hidden border border-slate-200">
+        <button
+          onClick={() => setShowParams((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700 transition-colors"
+        >
+          <span>Parâmetros Utilizados no Cálculo</span>
+          <span className="text-slate-400 text-xs">{showParams ? '▲' : '▼'}</span>
+        </button>
+        {showParams && (
+          <div className="bg-white">
+            {paramRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 last:border-0"
+              >
+                <span className="text-sm text-slate-500">{row.label}</span>
+                <span className="text-sm font-semibold text-slate-900 text-right">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Eye results */}
       {(odResult || oeResult) && (

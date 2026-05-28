@@ -5,10 +5,10 @@
  */
 import { Md5 } from 'ts-md5'
 
-const API_URL = (process.env.NEXT_PUBLIC_VOISTON_API_URL ?? 'https://api.voiston.ai/').replace(/\/$/, '')
-const EMAIL   = process.env.NEXT_PUBLIC_JJ_OWNER_EMAIL ?? ''
-const SECRET  = process.env.NEXT_PUBLIC_JJ_SECRET ?? ''
-const PATIENT_ID = parseInt(process.env.NEXT_PUBLIC_JJ_PATIENT_ID ?? '999', 10) || 999
+const API_URL        = (process.env.NEXT_PUBLIC_VOISTON_API_URL ?? 'https://api.voiston.ai/').replace(/\/$/, '')
+const EMAIL          = process.env.NEXT_PUBLIC_JJ_OWNER_EMAIL ?? ''
+const SECRET         = process.env.NEXT_PUBLIC_JJ_SECRET ?? ''
+const DATA_PARTNER_ID = parseInt(process.env.NEXT_PUBLIC_JJ_DATA_PARTNER_ID ?? '1786356', 10) || 1786356
 
 // Token cache in memory (+ localStorage for persistence across reloads)
 let cachedToken: string | null = null
@@ -122,6 +122,7 @@ export interface SignedUploadResponse {
 export async function clientRequestUpload(
   filename: string,
   contentType: string,
+  patientId?: number,
 ): Promise<SignedUploadResponse> {
   const { ownerId } = await getAuth()
   return vFetch<SignedUploadResponse>('api/Exam/newUploadRequest', {
@@ -129,7 +130,7 @@ export async function clientRequestUpload(
     body: JSON.stringify({
       Exam: {
         Owner: { ID: ownerId },
-        Patient: { ID: PATIENT_ID },
+        Patient: { ID: patientId ?? 999 },
         Status: 0,
       },
       FileName: filename,
@@ -159,4 +160,19 @@ export async function clientGetExamRelateds(examId: number): Promise<unknown> {
 
 export async function clientGetPatient(patientId: number): Promise<unknown> {
   return vFetch(`api/Patient/${patientId}`)
+}
+
+export async function clientCreatePatient(): Promise<{ ID: number }> {
+  const { ownerId } = await getAuth()
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const name = `paciente hub ${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear()}`
+  return vFetch<{ ID: number }>('api/Patient/New', {
+    method: 'POST',
+    body: JSON.stringify({
+      Name: name,
+      Owner: { ID: ownerId },
+      DataPartner: { ID: DATA_PARTNER_ID },
+    }),
+  })
 }

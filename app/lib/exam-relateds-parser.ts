@@ -161,8 +161,45 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
   }
 
   const AL  = find('al', 'axial length', 'axiallength', 'axial_length', 'al (mm)', 'comprimento axial')
-  const K1  = find('k1', 'flatk', 'flat k', 'k flat', 'keratometry k1', 'km1', 'k1 (ant.)', 'k1 (anterior)')
-  const K2  = find('k2', 'steepk', 'steep k', 'k steep', 'keratometry k2', 'km2', 'k2 (ant.)', 'k2 (anterior)')
+
+  // K1/K2 — range-validated (30–60 D). Argos stores only K_Axis (degrees) + DeltaK+Astig.
+  // Strategy: (1) find candidate, (2) if not in diopter range check > 90 → rescue as axis,
+  //           (3) fallback: reconstruct from KAV (DeltaK) ± |Astig|/2.
+  const validK = (v: number | undefined): v is number => v != null && v >= 30 && v <= 60
+
+  let K1raw  = find('k1', 'flatk', 'flat k', 'k flat', 'keratometry k1', 'km1', 'k1 (ant.)', 'k1 (anterior)')
+  let K1Axis = find('k1 axis', 'k1_axis', 'k1axis', 'flat k axis', 'eixo da curv. mínima (central)', 'eixo da curv. mínima')
+  if (!validK(K1raw)) {
+    // value looks like axis degrees (e.g. 176) or small garbage (e.g. 1) — rescue if > 90
+    if (K1raw != null && K1raw > 90 && K1Axis == null) K1Axis = K1raw
+    K1raw = find('flatk', 'flat k', 'k flat', 'keratometry k1', 'km1', 'k1 (ant.)', 'k1 (anterior)',
+      'k1_d', 'k1 d', 'k1(d)', 'r1_d', 'flat meridian', 'flat k (d)', 'keratometry1')
+  }
+
+  let K2raw  = find('k2', 'steepk', 'steep k', 'k steep', 'keratometry k2', 'km2', 'k2 (ant.)', 'k2 (anterior)')
+  let K2Axis = find('k2 axis', 'k2_axis', 'k2axis', 'steep k axis', 'eixo da curv. máxima (central)', 'eixo da curv. máxima')
+  if (!validK(K2raw)) {
+    if (K2raw != null && K2raw > 90 && K2Axis == null) K2Axis = K2raw
+    K2raw = find('steepk', 'steep k', 'k steep', 'keratometry k2', 'km2', 'k2 (ant.)', 'k2 (anterior)',
+      'k2_d', 'k2 d', 'k2(d)', 'r2_d', 'steep meridian', 'steep k (d)', 'keratometry2')
+  }
+
+  // Argos fallback: reconstruct K1/K2 from KAV (DeltaK TypeName) ± |Astig|/2
+  if (!validK(K1raw) || !validK(K2raw)) {
+    const kav = findExact('deltak', 'k_av', 'kav', 'kavg')
+      ?? find('mean k', 'meank', 'average k', 'km', 'k average')
+    const astigD = findExact('astig', 'astigmatismo')
+      ?? find('astigmatism', 'cylinder', 'cyl')
+    if (kav != null && validK(kav) && astigD != null) {
+      const half = Math.abs(astigD) / 2
+      if (!validK(K1raw)) K1raw = kav - half  // flat meridian (smaller K)
+      if (!validK(K2raw)) K2raw = kav + half  // steep meridian (larger K)
+    }
+  }
+
+  const K1 = K1raw
+  const K2 = K2raw
+
   const TK1 = find('tk1', 'total k1', 'totalk1', 'k1 total')
   const TK2 = find('tk2', 'total k2', 'totalk2', 'k2 total')
   const ACD = find('acd', 'anterior chamber depth', 'acd (mm)', 'acd depth', 'profundidade da câmara anterior')
@@ -177,8 +214,6 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
     'axis', 'astigmatism axis', 'cyl axis',
     'eixo do astig.', 'eixo do astigmatismo', 'eixo do astig (central)',
   )
-  const K1Axis = find('k1 axis', 'k1_axis', 'k1axis', 'flat k axis', 'eixo da curv. mínima (central)', 'eixo da curv. mínima')
-  const K2Axis = find('k2 axis', 'k2_axis', 'k2axis', 'steep k axis', 'eixo da curv. máxima (central)', 'eixo da curv. máxima')
 
   return {
     AL:        AL        ?? 23.50,

@@ -17,6 +17,7 @@ import {
   clientGetExamStatus,
   clientGetExamRelateds,
   clientGetPatient,
+  clientCreatePatient,
 } from './voiston-client'
 import {
   parseExamRelateds,
@@ -26,6 +27,7 @@ import {
 import type { ParsedExamSession } from './exam-relateds-parser'
 
 export type UploadStepId =
+  | 'patient'
   | 'init'
   | 'upload'
   | 'confirm'
@@ -57,7 +59,8 @@ type CompleteFn = (session: ParsedExamSession) => void
 type ErrorFn   = (message: string) => void
 
 const STEP_DEFS: Array<Pick<UploadStep, 'id' | 'label'>> = [
-  { id: 'init',       label: 'Configurando sessão' },
+  { id: 'patient',    label: 'Preparando sessão'   },
+  { id: 'init',       label: 'Configurando envio'  },
   { id: 'upload',     label: 'Enviando arquivo'    },
   { id: 'confirm',    label: 'Confirmando recebimento' },
   { id: 'processing', label: 'Processando biometria' },
@@ -136,18 +139,26 @@ export class HubUploadManager {
   public async start() {
     const { signal } = this.abort
     try {
-      // 1. Solicita signed URL diretamente da Voiston API
+      // 1. Cria paciente real (igual jjvisionpro) — necessário para OCR funcionar
+      this.set('patient', { status: 'loading', progress: 50 })
+      const patient = await clientCreatePatient()
+      const realPatientId = patient.ID
+      this.set('patient', { status: 'success', progress: 100 })
+      if (signal.aborted) return
+
+      // 2. Solicita signed URL com patientId real
       this.set('init', { status: 'loading', progress: 40 })
       const upload = await clientRequestUpload(
         this.file.name,
         this.file.type || 'application/octet-stream',
+        realPatientId,
       )
       const { ExamId: examId, ExamFileId: examFileId, SignedUrl: signedUrl, Headers: signedHeaders } = upload
       this.state.examId = examId
       this.set('init', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 2. Upload direto ao storage (PUT signed URL)
+      // 3. Upload direto ao storage (PUT signed URL)
       this.set('upload', { status: 'loading', progress: 10 })
       const putRes = await fetch(signedUrl, {
         method: 'PUT',
@@ -162,19 +173,19 @@ export class HubUploadManager {
       this.set('upload', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 3. Confirma upload
+      // 4. Confirma upload
       this.set('confirm', { status: 'loading', progress: 50 })
       await clientConfirmUpload(examFileId, examId, this.file.size)
       this.set('confirm', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 4. Polling de status
+      // 5. Polling de status
       this.set('processing', { status: 'loading', progress: 5, message: 'Aguardando processamento...' })
       await this.poll(examId, signal)
       this.set('processing', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 5. Busca relateds + parse no browser
+      // 6. Busca relateds + parse no browser
       this.set('parsing', { status: 'loading', progress: 40, message: 'Buscando medidas biométricas...' })
       const [relateds, fullExam] = await Promise.all([
         clientGetExamRelateds(examId),
@@ -211,6 +222,42 @@ export class HubUploadManager {
         if (!name) name = embeddedPatient.Name
         if (embeddedPatient.Gender != null) gender = embeddedPatient.Gender
         if (!birthDate) birthDate = embeddedPatient.Birthday || embeddedPatient.BirthDate
+      }
+
+      // Gender from flat Measurements array (Side 0, Type.Name = "Gender")
+      if (gender == null) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const flatMeasurements = (relData?.Measurements ?? (relateds as any)?.Measurements) as Array<{
+          Side?: number
+          Type?: { Name?: string; DisplayName?: string }
+          StringValue?: string
+        }> | undefined
+        if (Array.isArray(flatMeasurements)) {
+          const gm = flatMeasurements.find((m) => {
+            const n = (m.Type?.Name ?? m.Type?.DisplayName ?? '').toLowerCase().trim()
+            return n === 'gender'
+          })
+          if (gm?.StringValue) gender = gm.StringValue
+        }
+      }
+
+      // Also scan GroupedMeasurement Side 0 (non-side-specific metadata)
+      if (gender == null) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const grouped = relData?.GroupedMeasurement as Array<any> | undefined
+        if (Array.isArray(grouped)) {
+          const side0 = grouped.find((g) => g.Side === 0)
+          if (side0) {
+            for (const lg of side0.LabelGroups ?? []) {
+              for (const tg of lg.TypeGroups ?? []) {
+                const n = (tg.MeasurementType?.Name ?? tg.MeasurementType?.DisplayName ?? '').toLowerCase().trim()
+                if (n === 'gender' && tg.Measurements?.[0]?.StringValue) {
+                  gender = tg.Measurements[0].StringValue
+                }
+              }
+            }
+          }
+        }
       }
 
       const resolvedPatientId = examObj?.PatientID || embeddedPatient?.ID
