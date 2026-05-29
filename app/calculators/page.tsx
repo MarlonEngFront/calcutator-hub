@@ -540,17 +540,32 @@ export default function CalculatorsPage() {
             eyes,
           }
 
-          let data
-          if (selectedGateway.length > 1) {
-            data = await calculateBundle({ ...base, calculators: selectedGateway.map((id) => ({ id })) })
-          } else {
-            const single = await calculateSingle({ ...base, calculator: { id: selectedGateway[0] } })
-            data = {
-              bundleId: requestId,
-              status: single.status,
-              results: { [selectedGateway[0]]: single },
-              audit: { executedAt: single.audit.executedAt, durationMs: 0, method: single.audit.method, notes: single.audit.notes },
-            }
+          // Gateway accepts max 4 calculators per bundle — chunk if needed
+          const BUNDLE_MAX = 4
+          const calcChunks: string[][] = []
+          for (let i = 0; i < selectedGateway.length; i += BUNDLE_MAX) {
+            calcChunks.push(selectedGateway.slice(i, i + BUNDLE_MAX))
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const chunkResults = await Promise.all(
+            calcChunks.map(async (chunk) => {
+              if (chunk.length === 1) {
+                const single = await calculateSingle({ ...base, calculator: { id: chunk[0] } })
+                return { [chunk[0]]: single }
+              }
+              const bundle = await calculateBundle({ ...base, calculators: chunk.map((id) => ({ id })) })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              return bundle.results as Record<string, any>
+            })
+          )
+
+          const mergedResults = Object.assign({}, ...chunkResults)
+          const data = {
+            bundleId: requestId,
+            status: 'success',
+            results: mergedResults,
+            audit: { executedAt: new Date().toISOString(), durationMs: 0, method: 'gateway', notes: [] as string[] },
           }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
