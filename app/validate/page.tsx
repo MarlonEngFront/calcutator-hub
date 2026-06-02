@@ -657,7 +657,7 @@ export default function ValidatePage() {
                 <span className="animate-spin-med" style={{ display: 'inline-block', width: 15, height: 15, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
                 Confirmando...
               </span>
-            : 'Confirmar e selecionar calculadoras →'}
+            : 'Confirmar e selecionar lentes →'}
         </button>
       </div>
     </div>
