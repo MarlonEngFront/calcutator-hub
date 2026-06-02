@@ -538,28 +538,34 @@ export default function ResultsPage() {
       {hasResults && calcIds.length > 0 && (
         <div>
           {/* Tab bar */}
-          <div className="border-b border-slate-200 overflow-x-auto">
-            <div className="flex gap-0.5 min-w-max">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Calculadora — selecione para ver resultado
+            </p>
+            <div className="flex flex-wrap gap-2">
               {calcIds.map((id) => {
-                const meta    = CALC_META[id]
-                const label   = meta?.label ?? id
+                const calcMeta = CALC_META[id]
+                const label    = calcMeta?.label ?? id
                 const isActive = id === effectiveTab
-                const status  = calcTabStatus(id, calculationResults)
+                const status   = calcTabStatus(id, calculationResults)
+                const statusColor =
+                  status === 'ok'   ? 'text-green-500' :
+                  status === 'fail' ? 'text-red-400'   :
+                                     'text-amber-500'
                 const statusIcon =
-                  status === 'ok'   ? <span className="text-green-500">✓</span> :
-                  status === 'fail' ? <span className="text-red-500">✗</span> :
-                                     <span className="text-amber-500">⚠</span>
+                  status === 'ok'   ? '✓' :
+                  status === 'fail' ? '✗' : '⚠'
                 return (
                   <button
                     key={id}
                     onClick={() => setActiveTab(id)}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all whitespace-nowrap shadow-sm ${
                       isActive
-                        ? 'border-blue-600 text-blue-700 bg-blue-50/60'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-slate-50'
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-[1.02]'
+                        : 'bg-white border-slate-200 text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50'
                     }`}
                   >
-                    {statusIcon}
+                    <span className={isActive ? 'text-white' : statusColor}>{statusIcon}</span>
                     {label}
                   </button>
                 )
@@ -568,7 +574,7 @@ export default function ResultsPage() {
           </div>
 
           {/* Tab content */}
-          <div className="space-y-6 pt-6">
+          <div className="space-y-6 pt-2">
             {tabResults.length === 0 ? (
               <div className="text-center py-10 text-gray-400">
                 <div className="text-4xl mb-2">🔍</div>
