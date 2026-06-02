@@ -215,6 +215,7 @@ export default function UploadPage() {
                 onChange={(e) => {
                   const file = e.currentTarget.files?.[0]
                   if (file) processFile(file)
+                  e.currentTarget.value = '' // reset so same file re-triggers onChange
                 }}
                 className="hidden"
                 id="file-input"
