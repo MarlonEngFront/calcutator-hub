@@ -417,8 +417,8 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
 }
 
 // ─── ExamViewerPanel ───────────────────────────────────────────────────────────
-interface ExamViewerPanelProps { fileDataUrl: string | null; meta: BiometryMeta; biometry: ParsedBiometry; isExpanded: boolean; onToggleExpand: () => void }
-function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpand }: ExamViewerPanelProps) {
+interface ExamViewerPanelProps { fileDataUrl: string | null; meta: BiometryMeta; biometry: ParsedBiometry }
+function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) {
   const isPDF   = meta.fileType === 'application/pdf'
   // fileDataUrl is now a blob: URL (created via URL.createObjectURL in upload page)
   // No conversion needed — works directly in embed/img
@@ -443,12 +443,10 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
     return (
       <div style={{
         borderRadius: 12, overflow: 'hidden',
-        border: `1px solid ${isExpanded ? TEAL : BORDER}`,
-        outline: isExpanded ? `3px solid rgba(11,138,126,0.15)` : '3px solid transparent',
+        border: `1px solid ${TEAL}`,
+        outline: `3px solid rgba(11,138,126,0.15)`,
         outlineOffset: '2px',
-        boxShadow: isExpanded ? '0 8px 32px rgba(0,0,0,0.12)' : '0 2px 12px rgba(0,0,0,0.07)',
-        transform: isExpanded ? 'scale(1.005)' : 'scale(1)',
-        transition: 'border-color 0.3s, outline-color 0.3s, box-shadow 0.3s, transform 0.3s',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
       }}>
         <div style={{
           padding: '0.5rem 0.85rem', background: CARD_HDR, borderBottom: `1px solid ${BORDER}`,
@@ -461,22 +459,8 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
             style={{ fontSize: '0.74rem', color: TEXT_MED, padding: '0.22rem 0.55rem', borderRadius: 4, border: `1px solid ${BORDER}`, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             ↗ Nova Aba
           </a>
-          <button onClick={onToggleExpand}
-            style={{
-              fontSize: '0.74rem', padding: '0.22rem 0.65rem', borderRadius: 100,
-              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 700,
-              background: isExpanded ? TEAL : BORDER,
-              color: isExpanded ? '#fff' : TEXT_MED,
-              transition: 'background 0.2s, color 0.2s',
-            }}>
-            {isExpanded ? '⤡ Reduzir' : '⤢ Ampliar'}
-          </button>
         </div>
-        <div style={{
-          overflow: 'hidden', background: '#f1f5f9',
-          height: isExpanded ? '78vh' : '400px',
-          transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
-        }}>
+        <div style={{ overflow: 'hidden', background: '#f1f5f9', height: '78vh' }}>
           {isPDF && fileDataUrl && (
             <embed
               src={fileDataUrl}
@@ -485,7 +469,7 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry, isExpanded, onToggleExpa
             />
           )}
           {isImage && (
-            <div className="w-full h-full overflow-y-auto flex items-start justify-center" style={{ cursor: 'zoom-in' }} onClick={onToggleExpand}>
+            <div className="w-full h-full overflow-y-auto flex items-start justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
             </div>
@@ -533,8 +517,7 @@ export default function ValidatePage() {
     surgeryParams, setSurgeryParams,
     fileDataUrl, kReadings, rawMeasurements,
   } = useBiometryStore()
-  const [isConfirming, setIsConfirming]     = useState(false)
-  const [isPanelExpanded, setIsPanelExpanded] = useState(true)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   if (!biometry || !meta) {
     return (
@@ -555,8 +538,7 @@ export default function ValidatePage() {
   return (
     <div style={{
       margin: '0 auto',
-      maxWidth: isPanelExpanded ? '1700px' : '1000px',
-      transition: 'max-width 0.5s cubic-bezier(0.4,0,0.2,1)',
+      maxWidth: '1700px',
       fontFamily: 'var(--font-barlow, Barlow, sans-serif)',
     }}>
       {/* ── Header card ─────────────────────────────────────────────────────── */}
@@ -620,9 +602,8 @@ export default function ValidatePage() {
       {/* ── 3-column grid ───────────────────────────────────────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isPanelExpanded ? '1fr 1.7fr 1fr' : '1fr 200px 1fr',
+        gridTemplateColumns: '1fr 1.7fr 1fr',
         gap: '1.1rem', alignItems: 'start',
-        transition: 'grid-template-columns 0.5s cubic-bezier(0.4,0,0.2,1)',
       }}>
         <EyeTable
           eye="OD" eyeData={biometry.OD} kReadings={kReadings}
@@ -632,7 +613,7 @@ export default function ValidatePage() {
           onSurgeryChange={setSurgeryParams}
         />
         <div style={{ position: 'sticky', top: '9rem' }}>
-          <ExamViewerPanel fileDataUrl={fileDataUrl} meta={meta} biometry={biometry} isExpanded={isPanelExpanded} onToggleExpand={() => setIsPanelExpanded((v) => !v)} />
+          <ExamViewerPanel fileDataUrl={fileDataUrl} meta={meta} biometry={biometry} />
         </div>
         <EyeTable
           eye="OE" eyeData={biometry.OE} kReadings={kReadings}
@@ -647,7 +628,7 @@ export default function ValidatePage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '0.5rem' }}>
         <button onClick={() => { clearBiometry(); router.push('/') }} className="btn-med-secondary">← Voltar</button>
         <button
-          onClick={async () => { setIsConfirming(true); await new Promise((r) => setTimeout(r, 400)); router.push('/calculators') }}
+          onClick={async () => { setIsConfirming(true); await new Promise((r) => setTimeout(r, 400)); router.push('/selecaolentes') }}
           disabled={isConfirming}
           className="btn-med-primary"
           style={{ flex: 1, maxWidth: 420, background: TEAL }}

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { IOL } from '@/app/lib/iol-catalog'
+import type { CalcLens } from '@/app/lib/calculator-lens-catalogs'
 
 export interface ParsedEye {
   AL: number
@@ -101,6 +102,7 @@ interface BiometryStore {
   rawMeasurements: { OD: Record<string, string>; OE: Record<string, string> } | null
   relatedMeasurementTypeNames: string[]
   selectedIOL: IOL | null
+  selectedLenses: CalcLens[]
   surgeryParams: SurgeryParams
   originalSurgeryParams: SurgeryParams
   calculationResults: CalculationResult[]
@@ -120,6 +122,7 @@ interface BiometryStore {
   setODEye: (eye: ParsedEye) => void
   setOEEye: (eye: ParsedEye) => void
   setSelectedIOL: (iol: IOL | null) => void
+  setSelectedLenses: (lenses: CalcLens[]) => void
   setSurgeryParams: (params: Partial<SurgeryParams>) => void
   setCalculationResults: (results: CalculationResult[]) => void
   clearResults: () => void
@@ -150,6 +153,7 @@ export const useBiometryStore = create<BiometryStore>()(
       rawMeasurements: null,
       relatedMeasurementTypeNames: [],
       selectedIOL: null,
+      selectedLenses: [],
       surgeryParams: DEFAULT_SURGERY,
       originalSurgeryParams: DEFAULT_SURGERY,
       calculationResults: [],
@@ -210,6 +214,7 @@ export const useBiometryStore = create<BiometryStore>()(
         })),
 
       setSelectedIOL: (iol) => set({ selectedIOL: iol }),
+      setSelectedLenses: (lenses) => set({ selectedLenses: lenses }),
 
       setSurgeryParams: (params) =>
         set((state) => ({
@@ -256,6 +261,7 @@ export const useBiometryStore = create<BiometryStore>()(
         rawMeasurements: state.rawMeasurements,
         relatedMeasurementTypeNames: state.relatedMeasurementTypeNames,
         selectedIOL: state.selectedIOL,
+        selectedLenses: state.selectedLenses,
         surgeryParams: state.surgeryParams,
         originalSurgeryParams: state.originalSurgeryParams,
         surgicalPresets: state.surgicalPresets,

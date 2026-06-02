@@ -5,16 +5,18 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const STEPS = [
-  { label: 'Upload', path: '/', icon: '📤', description: 'Envie o exame' },
-  { label: 'Validar', path: '/validate', icon: '✏️', description: 'Confirme os dados' },
-  { label: 'Calcular', path: '/calculators', icon: '🔬', description: 'Selecione a calculadora' },
-  { label: 'Resultados', path: '/results', icon: '📊', description: 'Veja o LIO ideal' },
+  { label: 'Upload',    path: '/',              description: 'Envie o exame' },
+  { label: 'Validar',   path: '/validate',      description: 'Confirme os dados' },
+  { label: 'Lentes',    path: '/selecaolentes', description: 'Selecione a lente' },
+  { label: 'Calcular',  path: '/calculators',   description: 'Selecione a calculadora' },
+  { label: 'Resultados',path: '/results',       description: 'Veja o LIO ideal' },
 ]
 
 function getStepIndex(pathname: string) {
-  if (pathname.startsWith('/results')) return 3
-  if (pathname.startsWith('/calculators')) return 2
-  if (pathname.startsWith('/validate')) return 1
+  if (pathname.startsWith('/results'))        return 4
+  if (pathname.startsWith('/calculators'))    return 3
+  if (pathname.startsWith('/selecaolentes')) return 2
+  if (pathname.startsWith('/validate'))       return 1
   return 0
 }
 
