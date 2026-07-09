@@ -121,6 +121,28 @@ const CALC_SHORT: Record<string, string> = {
 
 const BUNDLE_MAX = 4
 
+// Calculadoras http-api (BRASCRS) não usam Playwright — sem browser, sem custo de CPU.
+// As demais (TECNIS, APACRS, ESCRS) rodam via Playwright headless, compartilhando um
+// Chromium por chamada de bundle no gateway (2 vCPU/instância) — agrupar muitas delas
+// numa chamada só gera disputa de CPU e piora a latência total. Mantemos grupos menores
+// pra essas, o que também deixa o Cloud Run escalar horizontalmente entre instâncias.
+const HTTP_API_CALC_IDS = new Set(['brascrs-double-k', 'brascrs-multiformula'])
+const PLAYWRIGHT_BUNDLE_MAX = 2
+
+function chunkSelectedCalcs(selectedGateway: string[]): string[][] {
+  const httpApiIds   = selectedGateway.filter((id) => HTTP_API_CALC_IDS.has(id))
+  const playwrightIds = selectedGateway.filter((id) => !HTTP_API_CALC_IDS.has(id))
+
+  const chunks: string[][] = []
+  for (let i = 0; i < httpApiIds.length; i += BUNDLE_MAX) {
+    chunks.push(httpApiIds.slice(i, i + BUNDLE_MAX))
+  }
+  for (let i = 0; i < playwrightIds.length; i += PLAYWRIGHT_BUNDLE_MAX) {
+    chunks.push(playwrightIds.slice(i, i + PLAYWRIGHT_BUNDLE_MAX))
+  }
+  return chunks
+}
+
 // ── Calc step type ─────────────────────────────────────────────────────────────
 type CalcStepStatus = 'pending' | 'running' | 'done' | 'error'
 interface CalcStep {
@@ -475,11 +497,10 @@ export default function CalculatorsPage() {
       { id: 'prepare',  label: 'Preparando parâmetros', status: 'done' },
     ]
     selectedLenses.forEach((lens, li) => {
-      for (let i = 0; i < selectedGateway.length; i += BUNDLE_MAX) {
-        const chunk = selectedGateway.slice(i, i + BUNDLE_MAX)
+      chunkSelectedCalcs(selectedGateway).forEach((chunk, ci) => {
         const names = chunk.map((id) => CALC_SHORT[id] ?? id).join(', ')
-        initialSteps.push({ id: `lens-${li}-chunk-${i / BUNDLE_MAX}`, label: `${lens.family} · ${names}`, status: 'pending' })
-      }
+        initialSteps.push({ id: `lens-${li}-chunk-${ci}`, label: `${lens.family} · ${names}`, status: 'pending' })
+      })
     })
     initialSteps.push({ id: 'finalize', label: 'Processando resultados', status: 'pending' })
 
@@ -546,11 +567,9 @@ export default function CalculatorsPage() {
             eyes,
           }
 
-          // Chunk calcs — gateway max 4 per bundle
-          const calcChunks: string[][] = []
-          for (let i = 0; i < selectedGateway.length; i += BUNDLE_MAX) {
-            calcChunks.push(selectedGateway.slice(i, i + BUNDLE_MAX))
-          }
+          // Chunk calcs — http-api (BRASCRS) agrupadas até o max do gateway; Playwright
+          // (TECNIS/APACRS/ESCRS) em grupos menores pra reduzir disputa de CPU no bundle.
+          const calcChunks = chunkSelectedCalcs(selectedGateway)
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const chunkResults = await Promise.all(
