@@ -145,13 +145,27 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
     }
     return undefined
   }
+  function isWordChar(ch: string | undefined): boolean {
+    return ch != null && /[a-z0-9]/i.test(ch)
+  }
+  // Substring match, mas só se o needle aparecer como palavra/frase isolada no
+  // label — não embutido dentro de outra palavra. Sem isso, needles curtos
+  // (ex: 'al', 'lt', 'cyl') casam com qualquer rótulo que contenha essas letras
+  // em sequência em qualquer lugar (ex: 'al' dentro de 'Astigmatismo (central)',
+  // 'lt' dentro de 'DeltaK') — já causou Comprimento Axial e Espessura do
+  // Cristalino serem preenchidos com valor de astigmatismo em exames reais.
+  function includesAsWord(haystack: string, needle: string): boolean {
+    const idx = haystack.indexOf(needle)
+    if (idx === -1) return false
+    return !isWordChar(haystack[idx - 1]) && !isWordChar(haystack[idx + needle.length])
+  }
   function findLoose(...needles: string[]): number | undefined {
     const entries = Object.entries(lc)
     for (const needle of needles) {
       const n = needle.toLowerCase().trim()
       for (const [k, v] of entries) {
         if (!isValid(v)) continue
-        if (k === n || k.includes(n)) return v
+        if (k === n || includesAsWord(k, n)) return v
       }
     }
     return undefined
@@ -189,7 +203,7 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
     const kav = findExact('deltak', 'k_av', 'kav', 'kavg')
       ?? find('mean k', 'meank', 'average k', 'km', 'k average')
     const astigD = findExact('astig', 'astigmatismo')
-      ?? find('astigmatism', 'cylinder', 'cyl')
+      ?? find('astigmatism', 'astigmatismo', 'cylinder', 'cyl')
     if (kav != null && validK(kav) && astigD != null) {
       const half = Math.abs(astigD) / 2
       if (!validK(K1raw)) K1raw = kav - half  // flat meridian (smaller K)
