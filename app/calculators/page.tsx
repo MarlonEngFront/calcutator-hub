@@ -29,7 +29,7 @@ function buildEye(
   return {
     biometry: { AL: eye.AL, ACD: eye.ACD, LT: eye.LT ?? 4.5, WTW: eye.WTW, CCT: eye.CCT, method: 'custom_a' },
     keratometry: { selected: 'anterior', K1: eye.K1, K2: eye.K2, K1Axis: eye.K1Axis, K2Axis: eye.K2Axis, Cyl: eye.Cyl, Axis: eye.Axis },
-    surgery: { SIA: surgery.SIA, SIAAxis: surgery.SIAAxis, refTarget: eyeSurgery.refTarget, incisionLocation: 180 },
+    surgery: { SIA: surgery.SIA, SIAAxis: surgery.SIAAxis, refTarget: eyeSurgery.refTarget, incisionLocation: surgery.SIAAxis },
     calculatorPreferences: { seIOLPower: eyeSurgery.seIOLPower, kIndex: '1.3375', cylinderConvention: 'plus', includePCA: true },
   }
 }
