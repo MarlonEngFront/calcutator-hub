@@ -26,8 +26,16 @@ const DECIMALS: Record<string, number> = {
   SIA: 2, SIAAxis: 0, refTarget: 2,
 }
 
-function fieldStatus(field: string, v?: number): 'ok' | 'warn' | 'neutral' {
+function isFieldEdited(field: string, v: number, original?: number): boolean {
+  if (original == null || !Number.isFinite(original)) return false
+  const decimals = DECIMALS[field] ?? 2
+  const epsilon = decimals === 0 ? 0.5 : Math.pow(10, -(decimals + 1))
+  return Math.abs(v - original) > epsilon
+}
+
+function fieldStatus(field: string, v?: number, original?: number): 'ok' | 'warn' | 'neutral' | 'edited' {
   if (v == null || !Number.isFinite(v)) return 'neutral'
+  if (isFieldEdited(field, v, original)) return 'edited'
   const r = RANGES[field]
   if (!r) return 'neutral'
   return v >= r[0] && v <= r[1] ? 'ok' : 'warn'
@@ -87,17 +95,19 @@ function AnatomicalGuide({ side }: { side: 'OD' | 'OE' }) {
 }
 
 // ─── Status icon ───────────────────────────────────────────────────────────────
-function StatusIcon({ status }: { status: 'ok' | 'warn' | 'neutral' }) {
+const EDITED_COLOR = '#5c9ce6'
+function StatusIcon({ status }: { status: 'ok' | 'warn' | 'neutral' | 'edited' }) {
+  if (status === 'edited') return <span title="Editado manualmente" style={{ fontSize: '0.78rem', fontWeight: 800, color: EDITED_COLOR, width: 12, flexShrink: 0 }}>✎</span>
   if (status === 'ok')   return <span style={{ fontSize: '0.78rem', fontWeight: 800, color: TEAL, width: 12, flexShrink: 0 }}>✓</span>
   if (status === 'warn') return <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#d97706', width: 12, flexShrink: 0 }}>!</span>
   return <span style={{ width: 12, flexShrink: 0, display: 'inline-block' }} />
 }
 
 // ─── Biometric input ───────────────────────────────────────────────────────────
-interface BioInputProps { field: string; value: number | undefined; onChange: (v: number) => void; showStatus?: boolean; compact?: boolean }
-function BioInput({ field, value, onChange, showStatus = true, compact }: BioInputProps) {
+interface BioInputProps { field: string; value: number | undefined; original?: number; onChange: (v: number) => void; showStatus?: boolean; compact?: boolean }
+function BioInput({ field, value, original, onChange, showStatus = true, compact }: BioInputProps) {
   const d = DECIMALS[field] ?? 2
-  const status = fieldStatus(field, value)
+  const status = fieldStatus(field, value, original)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
       <input
@@ -105,11 +115,13 @@ function BioInput({ field, value, onChange, showStatus = true, compact }: BioInp
         value={toFixed(value, field)}
         onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
         className={`input-biometric ${status === 'warn' ? 'warn' : ''}`}
+        title={status === 'edited' && original != null ? `Editado (original: ${original.toFixed(d)})` : ''}
         style={{
           maxWidth: compact ? 52 : 63, minWidth: compact ? 42 : 50,
           textAlign: 'center', fontSize: '0.92rem',
           padding: '0.18rem 0.1rem', height: '1.75rem',
-          background: '#fff', color: TEXT, border: `1px solid ${BORDER}`,
+          background: '#fff', color: TEXT,
+          border: `1px solid ${status === 'edited' ? EDITED_COLOR : BORDER}`,
           borderRadius: 6,
         }}
       />
@@ -190,6 +202,7 @@ function KSection({ ref_mm, reading, selected, onSelect }: KSectionProps) {
 interface EyeTableProps {
   eye: 'OD' | 'OE'
   eyeData: ParsedBiometry['OD']
+  originalEyeData?: ParsedBiometry['OD'] | null
   kReadings?: KeratometryReadings | null
   rawMeasurements?: Record<string, string> | null
   surgeryParams: SurgeryParams
@@ -197,7 +210,7 @@ interface EyeTableProps {
   onSurgeryChange: (p: Partial<SurgeryParams>) => void
 }
 
-function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onFieldChange, onSurgeryChange }: EyeTableProps) {
+function EyeTable({ eye, eyeData, originalEyeData, kReadings, rawMeasurements, surgeryParams, onFieldChange, onSurgeryChange }: EyeTableProps) {
   const [showExtra, setShowExtra] = useState(false)
   const eyeColor  = EYE_COLOR[eye]
   const eyeLabel  = eye === 'OD' ? 'OD — Olho Direito' : 'OE — Olho Esquerdo'
@@ -233,7 +246,7 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
         <div style={{ display: 'flex', gap: '0.28rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           {(['K1', 'K2'] as const).map((k) => (
             <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.04rem' }}>
-              <BioInput field={k} value={eyeData[k]} onChange={(v) => onFieldChange(k, v)} />
+              <BioInput field={k} value={eyeData[k]} original={originalEyeData?.[k]} onChange={(v) => onFieldChange(k, v)} />
               {eyeData[k === 'K1' ? 'K1Axis' : 'K2Axis'] != null && (
                 <span style={{ fontSize: '0.72rem', color: TEXT_MUTED, fontWeight: 600 }}>
                   eixo {Math.round(eyeData[k === 'K1' ? 'K1Axis' : 'K2Axis'] as number)}°
@@ -248,21 +261,21 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
       label: 'CYL / Eixo', ref: '0–10 D',
       node: (
         <div style={{ display: 'flex', gap: '0.28rem', alignItems: 'center', justifyContent: 'center' }}>
-          <BioInput field="Cyl" value={eyeData.Cyl} onChange={(v) => onFieldChange('Cyl', v)} />
+          <BioInput field="Cyl" value={eyeData.Cyl} original={originalEyeData?.Cyl} onChange={(v) => onFieldChange('Cyl', v)} />
           {eyeData.Axis != null && <span style={{ fontSize: '0.86rem', color: TEXT_MED, fontWeight: 700 }}>@ {Math.round(eyeData.Axis)}°</span>}
         </div>
       ),
     } as RowDef] : []),
     {
       label: 'Comprimento Axial', ref: '20',
-      node: <BioInput field="AL" value={eyeData.AL} onChange={(v) => onFieldChange('AL', v)} />,
+      node: <BioInput field="AL" value={eyeData.AL} original={originalEyeData?.AL} onChange={(v) => onFieldChange('AL', v)} />,
     },
     {
       label: 'ACD / LT', ref: '2/2',
       node: (
         <div style={{ display: 'flex', gap: '0.28rem', justifyContent: 'center' }}>
-          <BioInput field="ACD" value={eyeData.ACD} onChange={(v) => onFieldChange('ACD', v)} />
-          <BioInput field="LT"  value={eyeData.LT ?? 4.2} onChange={(v) => onFieldChange('LT', v)} />
+          <BioInput field="ACD" value={eyeData.ACD} original={originalEyeData?.ACD} onChange={(v) => onFieldChange('ACD', v)} />
+          <BioInput field="LT"  value={eyeData.LT ?? 4.2} original={originalEyeData?.LT} onChange={(v) => onFieldChange('LT', v)} />
         </div>
       ),
     },
@@ -270,8 +283,8 @@ function EyeTable({ eye, eyeData, kReadings, rawMeasurements, surgeryParams, onF
       label: 'CCT / WTW', ref: '400/10',
       node: (
         <div style={{ display: 'flex', gap: '0.28rem', justifyContent: 'center' }}>
-          <BioInput field="CCT" value={eyeData.CCT ?? 540} onChange={(v) => onFieldChange('CCT', v)} />
-          <BioInput field="WTW" value={eyeData.WTW} onChange={(v) => onFieldChange('WTW', v)} />
+          <BioInput field="CCT" value={eyeData.CCT ?? 540} original={originalEyeData?.CCT} onChange={(v) => onFieldChange('CCT', v)} />
+          <BioInput field="WTW" value={eyeData.WTW} original={originalEyeData?.WTW} onChange={(v) => onFieldChange('WTW', v)} />
         </div>
       ),
     },
@@ -512,7 +525,7 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
 export default function ValidatePage() {
   const router = useRouter()
   const {
-    biometry, meta, clearBiometry,
+    biometry, originalBiometry, meta, clearBiometry,
     updateODField, updateOEField,
     surgeryParams, setSurgeryParams,
     fileDataUrl, kReadings, rawMeasurements,
@@ -596,6 +609,7 @@ export default function ValidatePage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', fontSize: '0.78rem', color: TEXT_MUTED, marginBottom: '1rem' }}>
         <span><span style={{ color: TEAL, fontWeight: 800 }}>✓</span> OK</span>
         <span><span style={{ color: '#d97706', fontWeight: 800 }}>!</span> Alerta Clínico</span>
+        <span><span style={{ color: EDITED_COLOR, fontWeight: 800 }}>✎</span> Editado manualmente</span>
         <span>Inputs editáveis — arraste ou digite</span>
       </div>
 
@@ -606,7 +620,8 @@ export default function ValidatePage() {
         gap: '1.1rem', alignItems: 'start',
       }}>
         <EyeTable
-          eye="OD" eyeData={biometry.OD} kReadings={kReadings}
+          eye="OD" eyeData={biometry.OD} originalEyeData={originalBiometry?.OD}
+          kReadings={kReadings}
           rawMeasurements={rawMeasurements?.OD ?? null}
           surgeryParams={surgeryParams}
           onFieldChange={(f, v) => updateODField(f as keyof ParsedBiometry['OD'], v)}
@@ -616,7 +631,8 @@ export default function ValidatePage() {
           <ExamViewerPanel fileDataUrl={fileDataUrl} meta={meta} biometry={biometry} />
         </div>
         <EyeTable
-          eye="OE" eyeData={biometry.OE} kReadings={kReadings}
+          eye="OE" eyeData={biometry.OE} originalEyeData={originalBiometry?.OE}
+          kReadings={kReadings}
           rawMeasurements={rawMeasurements?.OE ?? null}
           surgeryParams={surgeryParams}
           onFieldChange={(f, v) => updateOEField(f as keyof ParsedBiometry['OE'], v)}
