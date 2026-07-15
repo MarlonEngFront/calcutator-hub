@@ -221,10 +221,12 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
   // WTW physiological range: 8.5–16 mm. Zeiss OCR sometimes returns radius (~3.7mm) instead of diameter.
   const wtwRaw = find('wtw', 'white to white', 'white-to-white', 'corneal diameter', 'wtw (mm)', 'diâmetro corneano', 'diametro corneano')
   const WTW = wtwRaw != null && wtwRaw >= 8.5 && wtwRaw <= 16 ? wtwRaw : undefined
-  const CCT = find(
+  const cctRaw = find(
     'cct', 'corneal thickness', 'cornealthickness', 'central corneal thickness',
     'espessura corneana central', 'espessura corneal central', 'espessura corneana (central)',
   )
+  // CCT normally reported in µm (e.g. 540). Some devices (Topcon Aladdin) report mm (e.g. 0.507) — normalize to µm.
+  const CCT = cctRaw != null && cctRaw < 10 ? cctRaw * 1000 : cctRaw
   const Cyl = find('cyl', 'cylinder', 'astigmatism', 'astigmatismo', 'astig', 'cyl (d)', 'astigmatismo (cyl)')
   const Axis = find(
     'axis', 'astigmatism axis', 'cyl axis',
