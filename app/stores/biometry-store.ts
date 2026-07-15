@@ -271,7 +271,10 @@ export const useBiometryStore = create<BiometryStore>()(
           ...r,
           results: r.results.map(({ screenshotDataUrl: _ss, ...eye }) => eye),
         })),
-        // fileDataUrl is a blob URL — invalid after reload, not persisted (same as jjvisionpro)
+        // fileDataUrl: blob: URLs (uploads reais) invalidam após reload e não são persistidas
+        // (mesmo comportamento do jjvisionpro). Paths estáticos (ex: demo pré-carregado) são
+        // estáveis entre reloads, então esses sim persistem.
+        fileDataUrl: state.fileDataUrl?.startsWith('blob:') ? null : state.fileDataUrl,
       }),
     }
   )
