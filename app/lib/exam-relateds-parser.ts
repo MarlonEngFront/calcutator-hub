@@ -397,6 +397,15 @@ export function parseExamRelateds(
   const odExtracted = odSide ? extractSideData(odSide) : { numeric: {}, raw: {}, typeNames: [] }
   const oeExtracted = oeSide ? extractSideData(oeSide) : { numeric: {}, raw: {}, typeNames: [] }
 
+  // GroupedMeasurement pode vir presente mas com LabelGroups vazios (ex.: equipamento
+  // não suportado pela OCR — Ziemer Galilei G6 fez isso em teste real, "processado sem
+  // erros" porém zero medidas). Sem essa checagem, normalizeEyeData({}) preenche os
+  // dois olhos com os defaults hardcoded (AL 23.50, K1 43.00 etc.) como se fossem dado
+  // real — silencioso, clinicamente perigoso (zera astigmatismo real).
+  if (Object.keys(odExtracted.numeric).length === 0 && Object.keys(oeExtracted.numeric).length === 0) {
+    return null
+  }
+
   const allTypeNames = [...odExtracted.typeNames, ...oeExtracted.typeNames]
     .map((n) => n.toLowerCase().trim())
     .filter(Boolean)

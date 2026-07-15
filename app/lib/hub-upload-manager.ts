@@ -21,7 +21,6 @@ import {
 } from './voiston-client'
 import {
   parseExamRelateds,
-  normalizeEyeData,
   unwrapExamRelatedsPayload,
 } from './exam-relateds-parser'
 import type { ParsedExamSession } from './exam-relateds-parser'
@@ -199,15 +198,13 @@ export class HubUploadManager {
         typeof examObj?.ExamType?.Name === 'string' ? examObj.ExamType.Name.trim() : undefined
 
       const relatedsRoot = unwrapExamRelatedsPayload(relateds)
-      let session = parseExamRelateds(relatedsRoot, examId, examTypeId)
+      const session = parseExamRelateds(relatedsRoot, examId, examTypeId)
 
       if (!session) {
-        session = {
-          OD: normalizeEyeData({}),
-          OE: normalizeEyeData({}),
-          examId,
-          examTypeId,
-        }
+        // Não substituir por normalizeEyeData({}) — isso preenche os campos com os
+        // defaults hardcoded do parser (AL 23.50, K1 43.00 etc.) como se fossem dado
+        // real extraído, sem nenhum aviso. Falha explícita aqui.
+        throw new Error('Biometria não reconhecida. Nenhuma medida foi extraída deste exame — verifique se o arquivo é um laudo suportado.')
       }
 
       // Enriquece metadados do paciente
