@@ -246,28 +246,24 @@ export default function UploadPage() {
           <button
             onClick={() => {
               logHubEvent('hub_demo_usado')
+              // Valores reais extraídos do exame Nidek-0102.pdf (public/Nidek-0102.pdf) —
+              // sem chamar a API de extração, só pulando direto pro estado pós-extração
+              // com os mesmos números que uma extração real desse arquivo produziria.
               const demoSurgery = { SIA: 0.1, SIAAxis: 120, OD: { seIOLPower: 21, refTarget: 0 }, OE: { seIOLPower: 21, refTarget: 0 } }
-              const demoK = {
-                K1: 44.12, K2: 45.42, K1Axis: 178, K2Axis: 88, Cyl: 1.30, Axis: 88,
-              }
-              const demoK33 = {
-                K1: 44.12, K2: 45.61, K1Axis: 178, K2Axis: 88, Cyl: 1.49, Axis: 88,
+              const odK24 = { K1: 44.12, K2: 45.42, K1Axis: 178, K2Axis: 88, Cyl: 1.30, Axis: 88 }
+              const odK33 = { K1: 44.12, K2: 45.61, K1Axis: 179, K2Axis: 89, Cyl: 1.49, Axis: 89 }
+              const oeK24 = { K1: 45.67, K2: 47.27, K1Axis: 176, K2Axis: 86, Cyl: 1.60, Axis: 86 }
+              const oeK33 = { K1: 45.55, K2: 47.40, K1Axis: 176, K2Axis: 86, Cyl: 1.85, Axis: 86 }
+              const demoBiometry = {
+                OD: { ...odK24, AL: 23.35, ACD: 3.42, CCT: 559, WTW: 12.0, refTarget: 0 },
+                OE: { ...oeK24, AL: 22.70, ACD: 3.41, CCT: 595, WTW: 11.7, refTarget: 0 },
               }
               setBiometry(
+                demoBiometry,
                 {
-                  OD: {
-                    ...demoK,
-                    AL: 23.35, ACD: 3.42, LT: 4.20, CCT: 559, WTW: 12.0, refTarget: 0,
-                  },
-                  OE: {
-                    ...demoK,
-                    AL: 23.35, ACD: 3.42, LT: 4.20, CCT: 559, WTW: 12.0, refTarget: 0,
-                  },
-                },
-                {
-                  filename: 'demo-nidek-alscan.pdf',
-                  fileSize: 0,
-                  fileType: 'application/json',
+                  filename: 'Nidek-0102.pdf',
+                  fileSize: 408414,
+                  fileType: 'application/pdf',
                   uploadedAt: new Date().toISOString(),
                   patientName: 'João Demo',
                   examType: 'Nidek AL-Scan',
@@ -276,8 +272,8 @@ export default function UploadPage() {
                 },
                 {
                   kReadings: {
-                    ref2dot4: { OD: demoK, OE: demoK },
-                    ref3dot3: { OD: demoK33, OE: demoK33 },
+                    ref2dot4: { OD: odK24, OE: oeK24 },
+                    ref3dot3: { OD: odK33, OE: oeK33 },
                   },
                   rawMeasurements: {
                     OD: {
@@ -292,17 +288,18 @@ export default function UploadPage() {
                     OE: {
                       'LS or Status': 'Phakic',
                       'K Index': '1.3375',
-                      'review: Mean K': '44,77',
-                      K1_2dot4: '44,12',
-                      K2_2dot4: '45,42',
-                      K1_3dot3: '44,12',
-                      K2_3dot3: '45,61',
+                      'review: Mean K': '46,47',
+                      K1_2dot4: '45,67',
+                      K2_2dot4: '47,27',
+                      K1_3dot3: '45,55',
+                      K2_3dot3: '47,40',
                     },
                   },
                   relatedMeasurementTypeNames: ['k1', 'k2', 'k1_2dot4', 'k2_2dot4', 'k1_3dot3', 'k2_3dot3'],
                 },
                 demoSurgery,
               )
+              setFileDataUrl('/Nidek-0102.pdf')
               router.push('/validate')
             }}
             className="flex items-center gap-2 bg-white text-blue-600 border border-blue-200 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors whitespace-nowrap"
