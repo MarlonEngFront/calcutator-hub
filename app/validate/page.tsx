@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { ParsedBiometry, BiometryMeta, SurgeryParams, KeratometryReadings, KeratometryReading } from '@/app/stores/biometry-store'
+import ToricIndicationBanner from '@/app/components/ToricIndicationBanner'
 
 // ─── Design tokens — light theme ───────────────────────────────────────────────
 const CARD_BG      = '#f8fafc'
@@ -612,6 +613,9 @@ export default function ValidatePage() {
           ))}
         </div>
       </div>
+
+      {/* ── Indicação de LIO tórica ─────────────────────────────────────────── */}
+      <ToricIndicationBanner od={biometry.OD} oe={biometry.OE} className="mb-4" />
 
       {/* ── Alertas ─────────────────────────────────────────────────────────── */}
       {(isManualEntry || hasWarnings) && (
