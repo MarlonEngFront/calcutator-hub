@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/app/lib/useAuth'
@@ -19,6 +19,69 @@ function getStepIndex(pathname: string) {
   if (pathname.startsWith('/selecaolentes')) return 2
   if (pathname.startsWith('/validate'))       return 1
   return 0
+}
+
+function UserMenu() {
+  const { user, profile, signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  if (!user) return null
+
+  const name = profile?.displayName || user.displayName || user.email || 'Usuário'
+  const photo = profile?.photoURL || user.photoURL
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || 'U'
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-slate-100 transition-colors"
+        aria-label="Menu do usuário"
+      >
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- avatar externo do Google, sem next/image
+          <img
+            src={photo}
+            alt={name}
+            referrerPolicy="no-referrer"
+            className="w-8 h-8 rounded-full object-cover border border-slate-200"
+          />
+        ) : (
+          <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+            {initials}
+          </span>
+        )}
+        <span className="hidden md:inline text-sm font-medium text-gray-700 max-w-[140px] truncate">{name}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50">
+          <div className="px-3 py-2 border-b border-slate-100">
+            <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
+            {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
+          </div>
+          <button
+            onClick={() => {
+              setOpen(false)
+              signOut()
+            }}
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Sair
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -57,6 +120,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   Admin
                 </Link>
               )}
+              <UserMenu />
             </div>
           </div>
         </div>

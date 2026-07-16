@@ -24,3 +24,6 @@ Thumbs.db
 
 # Vercel
 .vercel/
+
+# Firebase CLI cache
+.firebase/
