@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == 'admin'
+        && userDoc().approved == true;
+    }
+
+    // @voiston.com verificado entra ja aprovado; conta externa entra pendente.
+    function isVoistonVerified() {
+      return request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@voiston[.]com$');
+    }
+
+    // Super-admin de bootstrap: entra direto como admin no 1o login.
+    function isSuperAdminToken() {
+      return request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == 'marlon.andrade@voiston.com';
+    }
+
+    // Perfis de usuario + role/aprovacao.
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+
+      // 1o login: o proprio usuario cria seu doc.
+      // Super-admin entra com role admin ja; demais @voiston entram aprovados
+      // como member; contas externas entram pendentes (approved: false).
+      allow create: if isSelf(uid)
+        && (
+          (isSuperAdminToken()
+            && request.resource.data.role == 'admin'
+            && request.resource.data.approved == true)
+          ||
+          (!isSuperAdminToken()
+            && request.resource.data.role == 'member'
+            && request.resource.data.approved == isVoistonVerified())
+        );
+
+      // Aprovar e mudar papel: so admin.
+      allow update, delete: if isAdmin();
+    }
+
+    // Log de acesso (rotas visitadas). Cada usuario so grava o proprio uid,
+    // registro e imutavel (sem update/delete pelo cliente); so admin le/lista.
+    match /access_logs/{id} {
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.path is string;
+      allow read, list: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Demais colecoes: negadas por padrao ate serem explicitamente liberadas.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

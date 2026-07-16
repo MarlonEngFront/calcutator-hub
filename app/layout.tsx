@@ -4,6 +4,8 @@ import { Barlow } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/app/components/AppShell'
 import { AnalyticsProvider } from '@/app/components/AnalyticsProvider'
+import AuthGate from '@/app/components/AuthGate'
+import { AuthProvider } from '@/app/lib/useAuth'
 
 const barlow = Barlow({
   subsets: ['latin'],
@@ -22,7 +24,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="pt-BR" className={barlow.variable}>
       <body className="bg-slate-50 text-gray-900 antialiased">
         <AnalyticsProvider />
-        <AppShell>{children}</AppShell>
+        <AuthProvider>
+          <AuthGate>
+            <AppShell>{children}</AppShell>
+          </AuthGate>
+        </AuthProvider>
       </body>
     </html>
   )

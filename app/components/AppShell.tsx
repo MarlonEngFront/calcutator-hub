@@ -52,50 +52,52 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Progress Steps */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between max-w-2xl">
-            {STEPS.map((step, index) => {
-              const isActive = index === currentStep
-              const isDone = index < currentStep
-              const isLast = index === STEPS.length - 1
+      {/* Progress Steps (escondido fora do fluxo das calculadoras, ex.: /admin) */}
+      {!pathname.startsWith('/admin') && (
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between max-w-2xl">
+              {STEPS.map((step, index) => {
+                const isActive = index === currentStep
+                const isDone = index < currentStep
+                const isLast = index === STEPS.length - 1
 
-              return (
-                <div key={step.path} className="flex items-center flex-1">
-                  <div className="flex items-center gap-2.5">
-                    {/* Circle */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                        isDone
-                          ? 'bg-blue-600 text-white'
-                          : isActive
-                          ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                          : 'bg-slate-100 text-slate-400'
-                      }`}
-                    >
-                      {isDone ? '✓' : index + 1}
-                    </div>
-                    {/* Label */}
-                    <div className="hidden sm:block">
-                      <div className={`text-sm font-semibold ${isActive ? 'text-blue-600' : isDone ? 'text-gray-700' : 'text-gray-400'}`}>
-                        {step.label}
+                return (
+                  <div key={step.path} className="flex items-center flex-1">
+                    <div className="flex items-center gap-2.5">
+                      {/* Circle */}
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                          isDone
+                            ? 'bg-blue-600 text-white'
+                            : isActive
+                            ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                            : 'bg-slate-100 text-slate-400'
+                        }`}
+                      >
+                        {isDone ? '✓' : index + 1}
                       </div>
-                      <div className={`text-xs ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
-                        {step.description}
+                      {/* Label */}
+                      <div className="hidden sm:block">
+                        <div className={`text-sm font-semibold ${isActive ? 'text-blue-600' : isDone ? 'text-gray-700' : 'text-gray-400'}`}>
+                          {step.label}
+                        </div>
+                        <div className={`text-xs ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
+                          {step.description}
+                        </div>
                       </div>
                     </div>
+                    {/* Connector */}
+                    {!isLast && (
+                      <div className={`flex-1 h-0.5 mx-3 rounded ${index < currentStep ? 'bg-blue-600' : 'bg-slate-200'}`} />
+                    )}
                   </div>
-                  {/* Connector */}
-                  {!isLast && (
-                    <div className={`flex-1 h-0.5 mx-3 rounded ${index < currentStep ? 'bg-blue-600' : 'bg-slate-200'}`} />
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <main
