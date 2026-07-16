@@ -3,6 +3,7 @@
 import { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/app/lib/useAuth'
 
 const STEPS = [
   { label: 'Upload',    path: '/',              description: 'Envie o exame' },
@@ -23,6 +24,7 @@ function getStepIndex(pathname: string) {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const currentStep = getStepIndex(pathname)
+  const { profile } = useAuth()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,6 +49,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                 6 calculadoras disponíveis
               </span>
+              {profile?.role === 'admin' && (
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-full transition-colors"
+                >
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
         </div>
