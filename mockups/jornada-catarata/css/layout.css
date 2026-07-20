@@ -28,6 +28,19 @@
 .brand-text strong { font-size: 1rem; color: var(--slate-900); }
 .brand-text small { font-size: 0.72rem; color: var(--color-primary); font-weight: 600; }
 
+/* Relógio/data no header */
+.header-datetime {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .35rem .7rem;
+  background: var(--slate-50); border: 1px solid var(--slate-200);
+  border-radius: 10px; white-space: nowrap;
+}
+.hd-icon { font-size: 1rem; }
+.hd-text { display: flex; flex-direction: column; line-height: 1.15; }
+.hd-text strong { font-size: .78rem; color: var(--slate-700); font-variant-numeric: tabular-nums; }
+.hd-text small { font-size: .68rem; color: var(--slate-500); font-variant-numeric: tabular-nums; }
+@media (max-width: 1150px) { .header-datetime { display: none; } }
+
 .header-nav { display: flex; gap: 0.25rem; flex: 1; }
 .header-nav a {
   padding: 0.5rem 0.9rem;

@@ -108,6 +108,13 @@ function renderHeader(active) {
           <small>Jornada Inteligente da Catarata</small>
         </span>
       </a>
+      <div class="header-datetime" id="header-datetime" title="Data e hora atuais">
+        <span class="hd-icon">📅</span>
+        <span class="hd-text">
+          <strong id="hd-dia">—</strong>
+          <small id="hd-data-hora">—</small>
+        </span>
+      </div>
       <nav class="header-nav">
         ${tabs.map((t) => `<a href="${t.href}" class="${t.key === active ? 'active' : ''}">${t.label}</a>`).join('')}
       </nav>
@@ -128,6 +135,28 @@ function renderHeader(active) {
     </div>
   `
   if (typeof renderNotificacoes === 'function') renderNotificacoes()
+  iniciarRelogioHeader()
+}
+
+function capitalizar(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+/* Relógio real do navegador (não é a data-referência usada pelos cálculos de SLA do mock) */
+function iniciarRelogioHeader() {
+  const elDia = document.getElementById('hd-dia')
+  const elDataHora = document.getElementById('hd-data-hora')
+  if (!elDia || !elDataHora) return
+
+  const atualizar = () => {
+    const agora = new Date()
+    elDia.textContent = capitalizar(agora.toLocaleDateString('pt-BR', { weekday: 'long' }))
+    const data = agora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    elDataHora.textContent = `${data} · ${hora}`
+  }
+  atualizar()
+  setInterval(atualizar, 1000)
 }
 
 /* Modal genérico de confirmação com motivo obrigatório (Suspender / Cancelar / Retornar) */
