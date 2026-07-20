@@ -112,6 +112,7 @@ function renderHeader(active) {
         ${tabs.map((t) => `<a href="${t.href}" class="${t.key === active ? 'active' : ''}">${t.label}</a>`).join('')}
       </nav>
       <div class="header-right">
+        <a href="pacientes.html" class="config-link ${active === 'pacientes' ? 'active' : ''}" title="Central de Pacientes">🧑‍🤝‍🧑 Pacientes</a>
         <a href="medicos.html" class="config-link ${active === 'medicos' ? 'active' : ''}" title="Central de Médicos">🩺 Médicos</a>
         <a href="config.html" class="config-link ${active === 'config' ? 'active' : ''}" title="Configuração de Etapas">⚙️ Configuração de Etapas</a>
         <span class="mock-badge" title="Protótipo estático com dados mockados — sem backend real">MOCK</span>

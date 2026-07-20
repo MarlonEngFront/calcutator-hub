@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Pacientes — Jornada Inteligente da Catarata</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <div id="app-header"></div>
+
+  <main class="page">
+    <h1 style="font-size:1.3rem; margin: 0 0 .25rem; color: var(--slate-900);">Central de Pacientes</h1>
+    <p style="color: var(--slate-500); font-size: .88rem; margin: 0 0 1.1rem;">
+      Pacientes agrupados por médico responsável — quem é, qual unidade, em que etapa está
+    </p>
+
+    <div class="toolbar">
+      <input class="toolbar-search" id="busca-paciente" type="search" placeholder="Buscar por paciente ou código..." />
+      <span class="chip" id="chip-medico">
+        <select id="f-medico-pac"></select>
+      </span>
+      <span class="chip" id="chip-unidade">
+        <select id="f-unidade-pac">
+          <option value="Todas">Unidade: todas</option>
+        </select>
+      </span>
+    </div>
+
+    <div id="pacientes-por-medico"></div>
+
+    <p style="font-size:.72rem; color: var(--slate-400); margin-top: 1.5rem;">
+      Nesta versão do mock, cada paciente corresponde a uma solicitação ativa — ainda não há histórico de
+      múltiplas solicitações por paciente ao longo do tempo (previsto como evolução futura).
+    </p>
+  </main>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/pacientes.js"></script>
+</body>
+</html>

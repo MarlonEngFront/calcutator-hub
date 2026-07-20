@@ -32,6 +32,9 @@ Depois abra `http://localhost:4173`. Também já existe uma configuração pront
 - **`medicos.html`** — Central de Médicos: cadastro (nome, CRM, especialidade, telefone, WhatsApp, e-mail,
   unidades que atende, ativo/inativo). É a fonte de contato usada pelas notificações — sem cadastro ou com
   médico inativo, o botão "Enviar mensagem ao médico" fica bloqueado.
+- **`pacientes.html`** — Central de Pacientes: pacientes agrupados por médico responsável, com unidade,
+  etapa atual e SLA; filtro por médico/unidade e busca. Derivada das solicitações existentes (ainda sem
+  histórico de múltiplas solicitações por paciente — ver nota na própria tela).
 
 Header comum: sino de **notificações** (push PWA simulado — ex.: paciente parado há 2 dias → atendente
 envia mensagem ao médico, com registro na timeline) + avatar do usuário logado e clínica.
