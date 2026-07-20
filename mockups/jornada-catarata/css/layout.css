@@ -71,15 +71,20 @@
 .user-chip-text small { font-size: 0.68rem; color: var(--slate-500); }
 @media (max-width: 900px) { .user-chip-text { display: none; } }
 
-/* Engrenagem de Configuração de Etapas */
-.config-gear {
-  font-size: 1.15rem;
-  padding: 0.35rem;
+/* Link de Configuração de Etapas (header, à direita) */
+.config-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.9rem;
   border-radius: 999px;
-  line-height: 1;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  white-space: nowrap;
 }
-.config-gear:hover { background: var(--slate-100); }
-.config-gear.active { background: var(--blue-50); }
+.config-link:hover { background: var(--slate-100); color: var(--slate-800); }
+.config-link.active { background: var(--blue-50); color: var(--color-primary); }
 
 /* Sino de notificações */
 .notif-bell-wrap { position: relative; }

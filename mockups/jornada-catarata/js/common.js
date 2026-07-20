@@ -86,8 +86,8 @@ function renderHeader(active) {
         ${tabs.map((t) => `<a href="${t.href}" class="${t.key === active ? 'active' : ''}">${t.label}</a>`).join('')}
       </nav>
       <div class="header-right">
+        <a href="config.html" class="config-link ${active === 'config' ? 'active' : ''}" title="Configuração de Etapas">⚙️ Configuração de Etapas</a>
         <span class="mock-badge" title="Protótipo estático com dados mockados — sem backend real">MOCK</span>
-        <a href="config.html" class="config-gear ${active === 'config' ? 'active' : ''}" title="Configuração de Etapas">⚙️</a>
         <div class="notif-bell-wrap" id="notif-bell-wrap"></div>
         <div class="user-chip" title="${escapeHtml(MOCK.USUARIO_LOGADO.nome)} · ${escapeHtml(MOCK.USUARIO_LOGADO.papel)}">
           <span class="user-avatar">${MOCK.USUARIO_LOGADO.iniciais}</span>
