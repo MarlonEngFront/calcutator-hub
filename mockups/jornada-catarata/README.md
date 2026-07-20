@@ -29,6 +29,9 @@ Depois abra `http://localhost:4173`. Também já existe uma configuração pront
   **gates com evidência** (itens tipo documento exigem anexo comprovante).
 - **`config.html`** — Configuração de Etapas: cada clínica monta o próprio fluxo (ocultar, remover,
   adicionar etapa com tipo Tarefa/Aprovação/Decisão). Persistido em localStorage; Kanban reflete na hora.
+- **`medicos.html`** — Central de Médicos: cadastro (nome, CRM, especialidade, telefone, WhatsApp, e-mail,
+  unidades que atende, ativo/inativo). É a fonte de contato usada pelas notificações — sem cadastro ou com
+  médico inativo, o botão "Enviar mensagem ao médico" fica bloqueado.
 
 Header comum: sino de **notificações** (push PWA simulado — ex.: paciente parado há 2 dias → atendente
 envia mensagem ao médico, com registro na timeline) + avatar do usuário logado e clínica.

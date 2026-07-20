@@ -66,6 +66,32 @@ function getEtapasAtivas() {
   return getEtapasConfiguradas().filter((e) => e.visivel)
 }
 
+/* Central de Médicos: cadastro persistido em localStorage (jc_medicos), com
+   fallback nos defaults do mock-data. É a fonte usada pelas notificações
+   para saber telefone/WhatsApp/e-mail de quem notificar. */
+function getMedicosConfigurados() {
+  try {
+    const raw = localStorage.getItem('jc_medicos')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length) return parsed
+    }
+  } catch (e) { /* localStorage indisponível — usa default */ }
+  return MOCK.MEDICOS_PERFIS_DEFAULT.map((m) => ({ ...m }))
+}
+
+function salvarMedicosConfigurados(medicos) {
+  try { localStorage.setItem('jc_medicos', JSON.stringify(medicos)) } catch (e) { /* demo segue em memória */ }
+}
+
+function getMedicosAtivos() {
+  return getMedicosConfigurados().filter((m) => m.ativo)
+}
+
+function findMedicoPorNome(nome) {
+  return getMedicosConfigurados().find((m) => m.nome === nome) || null
+}
+
 function renderHeader(active) {
   const tabs = [
     { key: 'dashboard', label: 'Dashboard', href: 'dashboard.html' },
@@ -86,6 +112,7 @@ function renderHeader(active) {
         ${tabs.map((t) => `<a href="${t.href}" class="${t.key === active ? 'active' : ''}">${t.label}</a>`).join('')}
       </nav>
       <div class="header-right">
+        <a href="medicos.html" class="config-link ${active === 'medicos' ? 'active' : ''}" title="Central de Médicos">🩺 Médicos</a>
         <a href="config.html" class="config-link ${active === 'config' ? 'active' : ''}" title="Configuração de Etapas">⚙️ Configuração de Etapas</a>
         <span class="mock-badge" title="Protótipo estático com dados mockados — sem backend real">MOCK</span>
         <div class="notif-bell-wrap" id="notif-bell-wrap"></div>

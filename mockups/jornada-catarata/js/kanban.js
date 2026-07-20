@@ -53,7 +53,7 @@ function renderFilterBar() {
   const prioridades = ['Todas', 'P1', 'P2', 'P3']
   const slas = ['Todas', 'ok', 'risco', 'vencido']
   const slaLabels = { ok: 'SLA ok', risco: 'SLA em risco', vencido: 'SLA vencido' }
-  const medicos = ['Todos', ...MOCK.MEDICOS]
+  const medicos = ['Todos', ...getMedicosConfigurados().map((m) => m.nome)]
 
   const el = document.getElementById('filter-bar')
   el.innerHTML = `

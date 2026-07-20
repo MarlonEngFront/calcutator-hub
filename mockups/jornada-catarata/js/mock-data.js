@@ -61,6 +61,35 @@ const GATES_COM_ANEXO = ['Aprovação do plano de saúde', 'Consentimento assina
 
 const MEDICOS = ['Dra. Camila Rosseti', 'Dr. Eduardo Vale', 'Dra. Fernanda Brito', 'Dr. Otávio Menck']
 
+const UNIDADES = ['Hospital Dia Visão', 'Centro Oftalmológico Central']
+
+const ESPECIALIDADES = ['Cirurgia de Catarata', 'Catarata e Refrativa', 'Catarata e Glaucoma', 'Retina e Catarata']
+
+// Cadastro de médicos (Central de Médicos) — necessário para as notificações
+// terem pra onde mandar o push/WhatsApp de verdade, não só o nome no card.
+const MEDICOS_PERFIS_DEFAULT = [
+  {
+    id: 'MED-1', nome: 'Dra. Camila Rosseti', crm: 'CRM-SP 145678', especialidade: 'Cirurgia de Catarata',
+    telefone: '(11) 3555-0101', whatsapp: '(11) 98765-4321', email: 'camila.rosseti@hospitaldiavisao.com.br',
+    unidades: ['Hospital Dia Visão', 'Centro Oftalmológico Central'], ativo: true,
+  },
+  {
+    id: 'MED-2', nome: 'Dr. Eduardo Vale', crm: 'CRM-SP 132980', especialidade: 'Catarata e Refrativa',
+    telefone: '(11) 3555-0102', whatsapp: '(11) 98765-4322', email: 'eduardo.vale@centraloftalmo.com.br',
+    unidades: ['Centro Oftalmológico Central'], ativo: true,
+  },
+  {
+    id: 'MED-3', nome: 'Dra. Fernanda Brito', crm: 'CRM-SP 158842', especialidade: 'Catarata e Glaucoma',
+    telefone: '(11) 3555-0103', whatsapp: '(11) 98765-4323', email: 'fernanda.brito@hospitaldiavisao.com.br',
+    unidades: ['Hospital Dia Visão'], ativo: true,
+  },
+  {
+    id: 'MED-4', nome: 'Dr. Otávio Menck', crm: 'CRM-SP 121034', especialidade: 'Retina e Catarata',
+    telefone: '(11) 3555-0104', whatsapp: '(11) 98765-4324', email: 'otavio.menck@centraloftalmo.com.br',
+    unidades: ['Hospital Dia Visão', 'Centro Oftalmológico Central'], ativo: true,
+  },
+]
+
 // Contexto de acesso da demo: 1 clínica, atendente logada
 const CLINICA = 'Hospital Dia Visão'
 const USUARIO_LOGADO = { nome: 'Juliana Prates', papel: 'Atendimento', iniciais: 'JP' }
@@ -311,6 +340,7 @@ function gerarComentarios(s) {
 const MOCK = {
   ESTADOS, ESTADO_PARA_COLUNA, COLUNAS_KANBAN, GATE_LABELS, GATES_COM_ANEXO, MEDICOS,
   ETAPAS_DEFAULT, TIPO_ETAPA_LABELS, SUBTIPO_ETAPA_LABELS,
+  UNIDADES, ESPECIALIDADES, MEDICOS_PERFIS_DEFAULT,
   CLINICA, USUARIO_LOGADO,
   solicitacoes: gerarSolicitacoes(),
 }

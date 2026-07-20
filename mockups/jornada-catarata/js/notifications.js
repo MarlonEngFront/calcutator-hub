@@ -106,18 +106,23 @@ function abrirModalMensagemMedico(notifId) {
   const n = gerarNotificacoes().find((x) => x.id === notifId)
   if (!n) return
   const s = findSolicitacao(n.solicitacaoId)
+  const perfil = findMedicoPorNome(n.medico)
   const mensagemPadrao = `Olá ${n.medico}, o paciente ${s.pacienteNome} (${s.id}) está parado há ${s.tempoParadoDias} dias na etapa "${s.colunaKanban}", necessitando de: ${s.pendenciasProximaEtapa.join(', ') || 'ação da equipe'} para evoluir para a próxima etapa.`
+
+  const contatoInfo = perfil
+    ? `via WhatsApp (${escapeHtml(perfil.whatsapp || '—')}) e push PWA${perfil.ativo ? '' : ' <span style="color:var(--color-error); font-weight:700;">— médico está inativo no cadastro</span>'}`
+    : `<span style="color:var(--color-error); font-weight:700;">médico sem cadastro na Central de Médicos — sem contato para notificar</span>`
 
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
   overlay.innerHTML = `
     <div class="modal-card">
       <h3>Enviar mensagem ao médico</h3>
-      <p class="modal-desc">Push PWA + mensagem interna para <strong>${escapeHtml(n.medico)}</strong>. Edite se quiser:</p>
+      <p class="modal-desc">Para <strong>${escapeHtml(n.medico)}</strong>, ${contatoInfo}. Edite a mensagem se quiser:</p>
       <textarea id="msg-medico" rows="5">${escapeHtml(mensagemPadrao)}</textarea>
       <div class="modal-actions">
         <button class="btn-secondary" data-action="cancelar">Cancelar</button>
-        <button class="btn-primary" data-action="enviar">Enviar push</button>
+        <button class="btn-primary" data-action="enviar" ${perfil && perfil.ativo ? '' : 'disabled'}>Enviar push</button>
       </div>
     </div>
   `
@@ -129,10 +134,10 @@ function abrirModalMensagemMedico(notifId) {
     overlay.remove()
     s.timeline.push({
       timestamp: new Date().toISOString(), tipo: 'Sistema', origem: 'sistema',
-      descricao: `Push PWA enviado para ${n.medico} por ${MOCK.USUARIO_LOGADO.nome} (${MOCK.USUARIO_LOGADO.papel}): "${msg}"`,
+      descricao: `Push PWA + WhatsApp (${perfil.whatsapp}) enviado para ${n.medico} por ${MOCK.USUARIO_LOGADO.nome} (${MOCK.USUARIO_LOGADO.papel}): "${msg}"`,
     })
     marcarNotifTratada(n.id)
-    toast(`Push PWA enviado para ${n.medico}`)
+    toast(`Push PWA + WhatsApp enviado para ${n.medico} (${perfil.whatsapp})`)
     renderNotificacoes()
     // se a página de detalhe da própria solicitação estiver aberta, re-renderiza a timeline
     if (typeof ATUAL !== 'undefined' && ATUAL && ATUAL.id === s.id && typeof render === 'function') render()

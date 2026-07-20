@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Médicos — Jornada Inteligente da Catarata</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <div id="app-header"></div>
+
+  <main class="page">
+    <h1 style="font-size:1.3rem; margin: 0 0 .25rem; color: var(--slate-900);">Central de Médicos</h1>
+    <p style="color: var(--slate-500); font-size: .88rem; margin: 0 0 1.1rem;">
+      Cadastro dos médicos da clínica — usado para saber quem e como notificar quando um caso precisa de atenção
+    </p>
+
+    <div class="config-grid">
+      <div class="section-card">
+        <h3>Médicos cadastrados — <span id="medicos-clinica"></span></h3>
+        <div id="lista-medicos"></div>
+      </div>
+
+      <div class="section-card config-form">
+        <h3 id="form-titulo">Adicionar médico</h3>
+        <input type="hidden" id="med-id" />
+
+        <label for="med-nome">Nome</label>
+        <input type="text" id="med-nome" placeholder="Ex.: Dra. Ana Ribeiro" maxlength="60" />
+
+        <label for="med-crm">CRM</label>
+        <input type="text" id="med-crm" placeholder="Ex.: CRM-SP 123456" maxlength="30" />
+
+        <label for="med-especialidade">Especialidade</label>
+        <select id="med-especialidade"></select>
+
+        <label for="med-telefone">Telefone</label>
+        <input type="text" id="med-telefone" placeholder="(11) 3555-0000" maxlength="20" />
+
+        <label for="med-whatsapp">WhatsApp</label>
+        <input type="text" id="med-whatsapp" placeholder="(11) 98765-4321" maxlength="20" />
+
+        <label for="med-email">E-mail</label>
+        <input type="text" id="med-email" placeholder="nome@clinica.com.br" maxlength="60" />
+
+        <label>Unidades que atende</label>
+        <div id="med-unidades" class="unidades-checks"></div>
+
+        <label class="switch-row">
+          <span class="switch">
+            <input type="checkbox" id="med-ativo" checked />
+            <span class="slider"></span>
+          </span>
+          <span style="font-size:.85rem; font-weight:600; color: var(--slate-600);">Ativo (recebe notificações)</span>
+        </label>
+
+        <div style="margin-top: 1.1rem; display:flex; justify-content:flex-end; gap:.5rem;">
+          <button class="btn-secondary" id="btn-cancelar-edicao" style="display:none;">Cancelar edição</button>
+          <button class="btn-primary" id="btn-salvar-medico" disabled>Adicionar médico</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/medicos.js"></script>
+</body>
+</html>
