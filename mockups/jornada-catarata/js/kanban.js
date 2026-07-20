@@ -119,7 +119,7 @@ function renderKanban() {
   const etapas = getEtapasAtivas()
   const board = document.createElement('div')
   board.className = 'kanban-board'
-  board.style.gridTemplateColumns = `repeat(${etapas.length}, minmax(210px, 1fr))`
+  board.style.gridTemplateColumns = `repeat(${etapas.length}, minmax(150px, 1fr))`
   board.innerHTML = etapas.map((etapa) => {
     const col = etapa.nome
     const itens = ativas.filter((s) => s.colunaKanban === col)
