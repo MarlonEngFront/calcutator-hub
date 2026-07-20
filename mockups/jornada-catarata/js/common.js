@@ -70,7 +70,6 @@ function renderHeader(active) {
   const tabs = [
     { key: 'dashboard', label: 'Dashboard', href: 'dashboard.html' },
     { key: 'central', label: 'Central de Planejamento', href: 'index.html' },
-    { key: 'config', label: 'Configuração de Etapas', href: 'config.html' },
   ]
   const el = document.getElementById('app-header')
   if (!el) return
@@ -88,6 +87,7 @@ function renderHeader(active) {
       </nav>
       <div class="header-right">
         <span class="mock-badge" title="Protótipo estático com dados mockados — sem backend real">MOCK</span>
+        <a href="config.html" class="config-gear ${active === 'config' ? 'active' : ''}" title="Configuração de Etapas">⚙️</a>
         <div class="notif-bell-wrap" id="notif-bell-wrap"></div>
         <div class="user-chip" title="${escapeHtml(MOCK.USUARIO_LOGADO.nome)} · ${escapeHtml(MOCK.USUARIO_LOGADO.papel)}">
           <span class="user-avatar">${MOCK.USUARIO_LOGADO.iniciais}</span>

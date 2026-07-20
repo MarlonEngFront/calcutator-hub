@@ -71,6 +71,16 @@
 .user-chip-text small { font-size: 0.68rem; color: var(--slate-500); }
 @media (max-width: 900px) { .user-chip-text { display: none; } }
 
+/* Engrenagem de Configuração de Etapas */
+.config-gear {
+  font-size: 1.15rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  line-height: 1;
+}
+.config-gear:hover { background: var(--slate-100); }
+.config-gear.active { background: var(--blue-50); }
+
 /* Sino de notificações */
 .notif-bell-wrap { position: relative; }
 .notif-bell {
