@@ -2,11 +2,18 @@
 
 let ATUAL = null
 
-function checklistItemHtml(item) {
+function checklistItemHtml(item, idx) {
+  // Gate com evidência: item tipo documento só conclui com comprovante anexado (feedback do Well)
+  const anexoUi = item.exigeAnexo && item.status === 'pendente'
+    ? `<button class="btn-secondary btn-anexar" data-anexar="${idx}" style="font-size:.7rem; padding:.2rem .6rem; margin-left:auto;">📎 Anexar comprovante</button>`
+    : item.exigeAnexo && item.anexo
+      ? `<span style="margin-left:auto; font-size:.68rem; color: var(--green-700); font-weight:700;">📎 ${escapeHtml(item.anexo)}</span>`
+      : ''
   return `
     <div class="checklist-item ${item.status}">
       <span class="checklist-dot"></span>
       <span class="label">${escapeHtml(item.item)}</span>
+      ${anexoUi}
     </div>
   `
 }
@@ -91,7 +98,7 @@ function render() {
     <div class="painel-central">
       <div class="section-card">
         <h3>Checklist — ${s.colunaKanban || s.estado}</h3>
-        ${s.checklist.map(checklistItemHtml).join('') || '<div class="empty-state">Nenhum item de checklist</div>'}
+        ${s.checklist.map((item, idx) => checklistItemHtml(item, idx)).join('') || '<div class="empty-state">Nenhum item de checklist</div>'}
       </div>
       <div class="section-card">
         <h3>Alertas ativos</h3>
@@ -122,7 +129,11 @@ function render() {
       </div>
       <div class="section-card">
         <h3>Calculadoras</h3>
-        <button class="btn-secondary" style="width:100%;" onclick="toast('Abriria a calculadora de LIO real do Voiston Hub (integração futura)')">Abrir calculadora de LIO →</button>
+        ${s.calculoRealizado
+          ? `<div style="font-size:.82rem; color: var(--green-700); font-weight:700;">✓ Cálculo reconhecido pelo sistema</div>
+             <div style="font-size:.78rem; color: var(--slate-500); margin-top:.25rem;">${escapeHtml(s.lioSelecionada || 'TECNIS Eyhance +21.5D')} · SRK/T</div>`
+          : `<button class="btn-primary" style="width:100%;" id="btn-calculadora">Abrir calculadora de LIO →</button>
+             <div style="font-size:.72rem; color: var(--slate-400); margin-top:.4rem;">Ao concluir o cálculo no Hub, o sistema reconhece o resultado e libera o avanço de etapa.</div>`}
       </div>
     </div>
   `
@@ -241,13 +252,80 @@ function attachAcoes() {
     toast('Comentário adicionado')
   })
 
+  // Gate com evidência: anexar comprovante conclui o item e remove a pendência
+  document.querySelectorAll('.btn-anexar').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const idx = Number(btn.dataset.anexar)
+      const item = s.checklist[idx]
+      abrirModalMotivo({
+        titulo: `Anexar comprovante — ${item.item}`,
+        descricao: 'Simulação de upload: informe o nome do documento anexado. Só com a evidência o item é concluído (não basta o check).',
+        onConfirm: (nomeDoc) => {
+          item.anexo = nomeDoc
+          item.status = 'concluido'
+          s.pendenciasProximaEtapa = s.pendenciasProximaEtapa.filter((p) => p !== item.item)
+          s.timeline.push({ timestamp: new Date().toISOString(), tipo: 'Manual', origem: 'usuario', descricao: `Comprovante anexado para "${item.item}": ${nomeDoc}` })
+          toast('Comprovante anexado — item concluído')
+          render()
+        },
+      })
+    })
+  })
+
+  // Nó funcional da calculadora: simula o Hub calculando e o sistema reconhecendo o resultado
+  const btnCalc = document.getElementById('btn-calculadora')
+  if (btnCalc) {
+    btnCalc.addEventListener('click', () => {
+      const overlay = document.createElement('div')
+      overlay.className = 'modal-overlay'
+      overlay.innerHTML = `
+        <div class="modal-card" style="text-align:center;">
+          <h3>Calculadora de LIO — Voiston Hub</h3>
+          <div id="calc-etapa1">
+            <p class="modal-desc">Calculando com os dados biométricos da solicitação...</p>
+            <div style="display:flex; justify-content:center; padding: 1rem 0;">
+              <div style="width:2.2rem; height:2.2rem; border:3px solid var(--slate-200); border-top-color: var(--color-teal); border-radius:999px; animation: spin-calc 0.9s linear infinite;"></div>
+            </div>
+          </div>
+          <div id="calc-etapa2" style="display:none;">
+            <p class="modal-desc">Resultado do cálculo:</p>
+            <div style="background: var(--green-50); border:1px solid var(--green-200); border-radius: 12px; padding: .9rem; margin-bottom: 1rem;">
+              <div style="font-weight:800; font-size:1.05rem; color: var(--slate-900);">TECNIS Eyhance +21.5D</div>
+              <div style="font-size:.8rem; color: var(--slate-500);">Fórmula SRK/T · alvo -0.25D · OD</div>
+            </div>
+            <button class="btn-primary" id="calc-confirmar" style="width:100%;">Usar este resultado</button>
+          </div>
+        </div>
+        <style>@keyframes spin-calc { to { transform: rotate(360deg); } }</style>
+      `
+      document.body.appendChild(overlay)
+      setTimeout(() => {
+        overlay.querySelector('#calc-etapa1').style.display = 'none'
+        overlay.querySelector('#calc-etapa2').style.display = ''
+        overlay.querySelector('#calc-confirmar').addEventListener('click', () => {
+          overlay.remove()
+          s.calculoRealizado = true
+          s.lioSelecionada = 'TECNIS Eyhance +21.5D'
+          const item = s.checklist.find((c) => c.item === 'Cálculo realizado')
+          if (item) item.status = 'concluido'
+          s.pendenciasProximaEtapa = s.pendenciasProximaEtapa.filter((p) => p !== 'Cálculo realizado')
+          s.timeline.push({ timestamp: new Date().toISOString(), tipo: 'Sistema', origem: 'sistema', descricao: 'Cálculo reconhecido pelo sistema (Voiston Hub) — TECNIS Eyhance +21.5D · SRK/T. Liberado para próxima etapa.' })
+          toast('Cálculo executado — você pode evoluir para a próxima etapa')
+          render()
+        })
+      }, 1500)
+    })
+  }
+
   document.getElementById('acao-avancar').addEventListener('click', () => {
     if (s.pendenciasProximaEtapa.length > 0) {
       abrirModalAviso({ titulo: `Gate de "${s.colunaKanban}" não cumprido`, itens: s.pendenciasProximaEtapa })
       return
     }
-    const idx = MOCK.COLUNAS_KANBAN.indexOf(s.colunaKanban)
-    const proxima = MOCK.COLUNAS_KANBAN[idx + 1]
+    const colunas = getEtapasAtivas().map((e) => e.nome)
+    const idx = colunas.indexOf(s.colunaKanban)
+    const proxima = colunas[idx + 1]
     if (!proxima) { toast('Solicitação já está na última etapa do Kanban'); return }
     s.colunaKanban = proxima
     s.timeline.push({ timestamp: new Date().toISOString(), tipo: 'Manual', origem: 'usuario', descricao: `Etapa avançada manualmente para "${proxima}"` })
@@ -269,8 +347,9 @@ function attachAcoes() {
   })
 
   document.getElementById('acao-retornar').addEventListener('click', () => {
-    const idx = MOCK.COLUNAS_KANBAN.indexOf(s.colunaKanban)
-    const anterior = MOCK.COLUNAS_KANBAN[idx - 1]
+    const colunas = getEtapasAtivas().map((e) => e.nome)
+    const idx = colunas.indexOf(s.colunaKanban)
+    const anterior = colunas[idx - 1]
     if (!anterior) { toast('Não há etapa anterior no Kanban'); return }
     abrirModalMotivo({
       titulo: 'Retornar à etapa anterior',

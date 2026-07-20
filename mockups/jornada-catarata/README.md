@@ -19,12 +19,19 @@ Depois abra `http://localhost:4173`. Também já existe uma configuração pront
 
 ## Telas
 
-- **`index.html`** — Central de Planejamento: KPIs, Kanban (6 colunas) / Lista / Fila de Prioridade, filtros,
-  bloqueio de drag-and-drop quando o gate da próxima etapa não foi cumprido.
-- **`solicitacao.html?id=SOL-XXXX`** — Detalhe da Solicitação: layout de 3 colunas + rodapé expansível
-  (checklist, alertas, tarefas, exames/documentos, timeline auditável, comentários, ações com motivo obrigatório).
 - **`dashboard.html`** — Indicadores gerenciais: KPIs, heatmap de gargalos, benchmark vs tempo real por etapa,
   fila de casos críticos, tendências.
+- **`index.html`** — Central de Planejamento: KPIs, Kanban (7 colunas, com split Aguardando Cálculo / Em Cálculo) /
+  Lista / Fila de Prioridade, filtros, bloqueio de drag-and-drop quando o gate da próxima etapa não foi cumprido.
+- **`solicitacao.html?id=SOL-XXXX`** — Detalhe da Solicitação: layout de 3 colunas + rodapé expansível
+  (checklist, alertas, tarefas, exames/documentos, timeline auditável, comentários, ações com motivo obrigatório).
+  Inclui o **nó funcional da calculadora** (simula o Hub calculando → sistema reconhece → libera avanço) e
+  **gates com evidência** (itens tipo documento exigem anexo comprovante).
+- **`config.html`** — Configuração de Etapas: cada clínica monta o próprio fluxo (ocultar, remover,
+  adicionar etapa com tipo Tarefa/Aprovação/Decisão). Persistido em localStorage; Kanban reflete na hora.
+
+Header comum: sino de **notificações** (push PWA simulado — ex.: paciente parado há 2 dias → atendente
+envia mensagem ao médico, com registro na timeline) + avatar do usuário logado e clínica.
 
 ## O que é mock vs o que é real
 

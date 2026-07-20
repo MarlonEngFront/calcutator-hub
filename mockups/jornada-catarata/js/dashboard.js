@@ -1,12 +1,17 @@
 /* Dashboard — indicadores gerenciais (pág. 20 do PDF) */
 
 const BENCHMARK_DIAS = {
-  'Avaliação': 3, 'Pré-op': 6, 'Aguardando Exames': 4, 'Em Cálculo': 1, 'Autorização': 3, 'Agendada': 2,
+  'Avaliação': 3, 'Pré-op': 6, 'Aguardando Exames': 4, 'Aguardando Cálculo': 1, 'Em Cálculo': 1, 'Autorização': 3, 'Agendada': 2,
+}
+const BENCHMARK_PADRAO = 2
+
+function benchmarkDe(coluna) {
+  return BENCHMARK_DIAS[coluna] ?? BENCHMARK_PADRAO
 }
 
 function mediaTempoParadoPorColuna(coluna) {
   const itens = MOCK.solicitacoes.filter((s) => s.colunaKanban === coluna)
-  if (!itens.length) return BENCHMARK_DIAS[coluna] * 1.1
+  if (!itens.length) return benchmarkDe(coluna) * 1.1
   return itens.reduce((acc, s) => acc + s.tempoParadoDias, 0) / itens.length
 }
 
@@ -35,9 +40,10 @@ function renderKpis() {
 }
 
 function renderBarras() {
-  const max = Math.max(...MOCK.COLUNAS_KANBAN.map((c) => Math.max(BENCHMARK_DIAS[c], mediaTempoParadoPorColuna(c)))) * 1.15
-  document.getElementById('dash-barras').innerHTML = MOCK.COLUNAS_KANBAN.map((col) => {
-    const bench = BENCHMARK_DIAS[col]
+  const colunas = getEtapasAtivas().map((e) => e.nome)
+  const max = Math.max(...colunas.map((c) => Math.max(benchmarkDe(c), mediaTempoParadoPorColuna(c)))) * 1.15
+  document.getElementById('dash-barras').innerHTML = colunas.map((col) => {
+    const bench = benchmarkDe(col)
     const real = mediaTempoParadoPorColuna(col)
     return `
       <div>
@@ -63,9 +69,11 @@ function corHeatmap(valor, max) {
 }
 
 function renderHeatmap() {
-  const valores = MOCK.COLUNAS_KANBAN.map((c) => mediaTempoParadoPorColuna(c))
+  const colunas = getEtapasAtivas().map((e) => e.nome)
+  const valores = colunas.map((c) => mediaTempoParadoPorColuna(c))
   const max = Math.max(...valores)
-  document.getElementById('dash-heatmap').innerHTML = MOCK.COLUNAS_KANBAN.map((col, i) => `
+  document.getElementById('dash-heatmap').style.gridTemplateColumns = `repeat(${colunas.length}, 1fr)`
+  document.getElementById('dash-heatmap').innerHTML = colunas.map((col, i) => `
     <div class="heatmap-cell" style="background:${corHeatmap(valores[i], max)}">
       ${col}<br/>${valores[i].toFixed(1)}d
     </div>

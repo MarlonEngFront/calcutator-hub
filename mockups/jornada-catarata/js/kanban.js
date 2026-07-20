@@ -116,17 +116,20 @@ function cardHtml(s) {
 
 function renderKanban() {
   const ativas = aplicarFiltros(solicitacoesAtivas())
+  const etapas = getEtapasAtivas()
   const board = document.createElement('div')
   board.className = 'kanban-board'
-  board.innerHTML = MOCK.COLUNAS_KANBAN.map((col) => {
+  board.style.gridTemplateColumns = `repeat(${etapas.length}, minmax(210px, 1fr))`
+  board.innerHTML = etapas.map((etapa) => {
+    const col = etapa.nome
     const itens = ativas.filter((s) => s.colunaKanban === col)
     return `
-      <div class="kanban-col" data-col="${col}">
+      <div class="kanban-col" data-col="${escapeHtml(col)}">
         <div class="kanban-col-header">
-          <span>${col}</span>
+          <span>${escapeHtml(col)} <span class="e-tipo ${etapa.tipo}" style="font-size:.6rem; vertical-align:middle;">${MOCK.TIPO_ETAPA_LABELS[etapa.tipo] || ''}</span></span>
           <span class="kanban-col-count">${itens.length}</span>
         </div>
-        <div class="kanban-col-body" data-col-body="${col}">
+        <div class="kanban-col-body" data-col-body="${escapeHtml(col)}">
           ${itens.length ? itens.map(cardHtml).join('') : '<div class="empty-state" style="padding:1rem;">Nenhuma solicitação</div>'}
         </div>
       </div>
@@ -180,8 +183,9 @@ function attachDragAndDrop() {
 function moverSolicitacao(id, destino) {
   const s = findSolicitacao(id)
   if (!s || s.colunaKanban === destino) return
-  const origemIdx = MOCK.COLUNAS_KANBAN.indexOf(s.colunaKanban)
-  const destinoIdx = MOCK.COLUNAS_KANBAN.indexOf(destino)
+  const colunas = getEtapasAtivas().map((e) => e.nome)
+  const origemIdx = colunas.indexOf(s.colunaKanban)
+  const destinoIdx = colunas.indexOf(destino)
 
   if (destinoIdx === origemIdx + 1) {
     if (s.pendenciasProximaEtapa.length > 0) {
@@ -210,7 +214,7 @@ function moverSolicitacao(id, destino) {
   } else {
     abrirModalAviso({
       titulo: 'Não é possível pular etapas',
-      itens: [`É necessário cumprir os gates de "${MOCK.COLUNAS_KANBAN[origemIdx + 1]}" antes de chegar em "${destino}"`],
+      itens: [`É necessário cumprir os gates de "${colunas[origemIdx + 1]}" antes de chegar em "${destino}"`],
     })
   }
 }

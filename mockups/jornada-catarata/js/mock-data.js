@@ -7,29 +7,63 @@ const ESTADOS = [
   'Cirurgia', 'Pós-op', 'Concluída',
 ]
 
-// Mapeia estado -> coluna do Kanban (pág. 9 do PDF: 6 colunas)
+// Mapeia estado -> coluna do Kanban (split "Em Cálculo": aguardando informação/lente vs aguardando aprovação médica)
 const ESTADO_PARA_COLUNA = {
   'Nova': 'Avaliação', 'Elegível': 'Avaliação', 'Avaliação': 'Avaliação',
   'Pré-operatório': 'Pré-op',
   'Aguardando Exames': 'Aguardando Exames', 'Pronta': 'Aguardando Exames',
-  'Em Cálculo': 'Em Cálculo', 'Revisão': 'Em Cálculo', 'LIO Definida': 'Em Cálculo',
+  'Em Cálculo': 'Aguardando Cálculo', 'Revisão': 'Em Cálculo', 'LIO Definida': 'Em Cálculo',
   'Autorização': 'Autorização',
   'Cirurgia Agendada': 'Agendada',
 }
 
-const COLUNAS_KANBAN = ['Avaliação', 'Pré-op', 'Aguardando Exames', 'Em Cálculo', 'Autorização', 'Agendada']
+/* Etapas configuráveis por clínica (feedback do Well 20/07):
+   cada etapa tem tipo (tarefa | aprovacao | decisao) e, se decisão, um subtipo
+   (documento | aprovacao | calculo). A tela de Configuração lê/edita uma cópia
+   disso em localStorage (jc_etapas); estes são os defaults. */
+const ETAPAS_DEFAULT = [
+  { nome: 'Avaliação', tipo: 'tarefa', visivel: true },
+  { nome: 'Pré-op', tipo: 'tarefa', visivel: true },
+  { nome: 'Aguardando Exames', tipo: 'decisao', subtipo: 'documento', visivel: true },
+  { nome: 'Aguardando Cálculo', tipo: 'tarefa', visivel: true },
+  { nome: 'Em Cálculo', tipo: 'decisao', subtipo: 'calculo', visivel: true },
+  { nome: 'Autorização', tipo: 'aprovacao', visivel: true },
+  { nome: 'Agendada', tipo: 'tarefa', visivel: true },
+]
 
-// Gate de saída de cada coluna — se a solicitação tem pendências, não pode avançar (pág. 7)
+const TIPO_ETAPA_LABELS = {
+  tarefa: 'Tarefa',
+  aprovacao: 'Aprovação',
+  decisao: 'Decisão',
+}
+const SUBTIPO_ETAPA_LABELS = {
+  documento: 'Documento',
+  aprovacao: 'Aprovação',
+  calculo: 'Cálculo',
+}
+
+const COLUNAS_KANBAN = ETAPAS_DEFAULT.map((e) => e.nome)
+
+// Gate de saída de cada coluna — se a solicitação tem pendências, não pode avançar.
+// Itens com "(anexo)" exigem comprovante anexado, não só check (feedback do Well).
 const GATE_LABELS = {
   'Avaliação': ['Diagnóstico CID registrado', 'Indicação cirúrgica confirmada', 'Olho (OD/OE) definido'],
   'Pré-op': ['Biometria recebida', 'Topografia recebida', 'Consentimento assinado', 'Convênio ativo'],
-  'Aguardando Exames': ['Todos exames recebidos', 'OCR validado', 'Sem rejeição de exame'],
-  'Em Cálculo': ['Biometria validada', 'Fórmula selecionada', 'Médico assinou digitalmente'],
+  'Aguardando Exames': ['Todos exames recebidos', 'Aprovação do plano de saúde', 'Sem rejeição de exame'],
+  'Aguardando Cálculo': ['Categoria de LIO definida', 'Biometria validada', 'Dados completos para cálculo'],
+  'Em Cálculo': ['Cálculo realizado', 'Fórmula selecionada', 'Médico assinou digitalmente'],
   'Autorização': ['Código de autorização do convênio', 'Validade OK', 'Procedimento coberto'],
   'Agendada': ['Data/hora definida', 'Sala confirmada', 'LIO disponível em estoque'],
 }
 
+// Itens de gate que exigem documento anexado como evidência (não basta o check)
+const GATES_COM_ANEXO = ['Aprovação do plano de saúde', 'Consentimento assinado', 'Código de autorização do convênio']
+
 const MEDICOS = ['Dra. Camila Rosseti', 'Dr. Eduardo Vale', 'Dra. Fernanda Brito', 'Dr. Otávio Menck']
+
+// Contexto de acesso da demo: 1 clínica, atendente logada
+const CLINICA = 'Hospital Dia Visão'
+const USUARIO_LOGADO = { nome: 'Juliana Prates', papel: 'Atendimento', iniciais: 'JP' }
 
 function gerarSolicitacoes() {
   const hoje = new Date('2026-07-16T09:00:00')
@@ -71,10 +105,10 @@ function gerarSolicitacoes() {
     },
     {
       id: 'SOL-2035', pacienteNome: 'Sebastião Nunes Prado', idade: 79, convenio: 'Unimed Nacional', olho: 'OD',
-      medicoNome: 'Dra. Camila Rosseti', estado: 'Aguardando Exames', prioridade: 'P2', tempoParadoDias: 5,
+      medicoNome: 'Dra. Camila Rosseti', estado: 'Aguardando Exames', prioridade: 'P2', tempoParadoDias: 2,
       slaStatus: 'risco', slaPercentual: 80, slaLabel: '1 dia restante', scoreIA: 55,
       centroReferencia: 'Hospital Dia Visão', cirurgiaData: null, lioSelecionada: null,
-      pendenciasProximaEtapa: ['OCR validado'],
+      pendenciasProximaEtapa: ['Aprovação do plano de saúde'],
       alertasAtivos: [{ categoria: 'exames', severidade: 'media' }],
     },
     {
@@ -90,7 +124,7 @@ function gerarSolicitacoes() {
       medicoNome: 'Dra. Fernanda Brito', estado: 'Em Cálculo', prioridade: 'P1', tempoParadoDias: 4,
       slaStatus: 'risco', slaPercentual: 90, slaLabel: '4 horas restantes', scoreIA: 76,
       centroReferencia: 'Hospital Dia Visão', cirurgiaData: null, lioSelecionada: null,
-      pendenciasProximaEtapa: ['Fórmula selecionada'],
+      pendenciasProximaEtapa: ['Categoria de LIO definida'],
       alertasAtivos: [{ categoria: 'sla', severidade: 'alta' }],
     },
     {
@@ -98,7 +132,7 @@ function gerarSolicitacoes() {
       medicoNome: 'Dr. Otávio Menck', estado: 'Revisão', prioridade: 'P2', tempoParadoDias: 2,
       slaStatus: 'ok', slaPercentual: 40, slaLabel: '3 dias restantes', scoreIA: 28,
       centroReferencia: 'Centro Oftalmológico Central', cirurgiaData: null, lioSelecionada: 'AcrySof IQ +21.0D',
-      pendenciasProximaEtapa: ['Médico assinou digitalmente'],
+      pendenciasProximaEtapa: ['Cálculo realizado'],
       alertasAtivos: [],
     },
     {
@@ -156,6 +190,8 @@ function gerarSolicitacoes() {
     return {
       ...s,
       colunaKanban: ESTADO_PARA_COLUNA[s.estado] || null,
+      // "Cálculo realizado" some das pendências quando a calculadora do Hub retorna resultado
+      calculoRealizado: !s.pendenciasProximaEtapa.includes('Cálculo realizado') && ESTADOS.indexOf(s.estado) > ESTADOS.indexOf('Em Cálculo'),
       responsavelAtual: { nome: s.medicoNome, iniciais },
       checklist: gerarChecklist(s.estado, s.pendenciasProximaEtapa),
       exames: gerarExames(s.estado),
@@ -174,6 +210,8 @@ function gerarChecklist(estado, pendencias) {
   return labels.map((label) => ({
     item: label,
     status: pendencias.includes(label) ? 'pendente' : 'concluido',
+    exigeAnexo: GATES_COM_ANEXO.includes(label),
+    anexo: null,
   }))
 }
 
@@ -271,7 +309,9 @@ function gerarComentarios(s) {
 }
 
 const MOCK = {
-  ESTADOS, ESTADO_PARA_COLUNA, COLUNAS_KANBAN, GATE_LABELS, MEDICOS,
+  ESTADOS, ESTADO_PARA_COLUNA, COLUNAS_KANBAN, GATE_LABELS, GATES_COM_ANEXO, MEDICOS,
+  ETAPAS_DEFAULT, TIPO_ETAPA_LABELS, SUBTIPO_ETAPA_LABELS,
+  CLINICA, USUARIO_LOGADO,
   solicitacoes: gerarSolicitacoes(),
 }
 

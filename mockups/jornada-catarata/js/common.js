@@ -45,16 +45,38 @@ function findSolicitacao(id) {
   return MOCK.solicitacoes.find((s) => s.id === id)
 }
 
+/* Etapas ativas da clínica: defaults do mock-data, sobrescritos pela tela de
+   Configuração via localStorage (jc_etapas). */
+function getEtapasConfiguradas() {
+  try {
+    const raw = localStorage.getItem('jc_etapas')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length) return parsed
+    }
+  } catch (e) { /* localStorage indisponível — usa default */ }
+  return MOCK.ETAPAS_DEFAULT.map((e) => ({ ...e }))
+}
+
+function salvarEtapasConfiguradas(etapas) {
+  try { localStorage.setItem('jc_etapas', JSON.stringify(etapas)) } catch (e) { /* demo segue em memória */ }
+}
+
+function getEtapasAtivas() {
+  return getEtapasConfiguradas().filter((e) => e.visivel)
+}
+
 function renderHeader(active) {
   const tabs = [
-    { key: 'central', label: 'Central de Planejamento', href: 'index.html' },
     { key: 'dashboard', label: 'Dashboard', href: 'dashboard.html' },
+    { key: 'central', label: 'Central de Planejamento', href: 'index.html' },
+    { key: 'config', label: 'Configuração de Etapas', href: 'config.html' },
   ]
   const el = document.getElementById('app-header')
   if (!el) return
   el.innerHTML = `
     <div class="header-inner">
-      <a class="brand" href="index.html">
+      <a class="brand" href="dashboard.html">
         <span class="brand-mark">V</span>
         <span class="brand-text">
           <strong>Voiston</strong>
@@ -65,11 +87,19 @@ function renderHeader(active) {
         ${tabs.map((t) => `<a href="${t.href}" class="${t.key === active ? 'active' : ''}">${t.label}</a>`).join('')}
       </nav>
       <div class="header-right">
-        <span class="mock-badge" title="Protótipo estático com dados mockados — sem backend real">MOCK · dados fictícios</span>
-        <a class="back-to-hub" href="http://localhost:3003" target="_blank" rel="noopener">← Calculator Hub</a>
+        <span class="mock-badge" title="Protótipo estático com dados mockados — sem backend real">MOCK</span>
+        <div class="notif-bell-wrap" id="notif-bell-wrap"></div>
+        <div class="user-chip" title="${escapeHtml(MOCK.USUARIO_LOGADO.nome)} · ${escapeHtml(MOCK.USUARIO_LOGADO.papel)}">
+          <span class="user-avatar">${MOCK.USUARIO_LOGADO.iniciais}</span>
+          <span class="user-chip-text">
+            <strong>${escapeHtml(MOCK.USUARIO_LOGADO.nome)}</strong>
+            <small>${escapeHtml(MOCK.USUARIO_LOGADO.papel)} · ${escapeHtml(MOCK.CLINICA)}</small>
+          </span>
+        </div>
       </div>
     </div>
   `
+  if (typeof renderNotificacoes === 'function') renderNotificacoes()
 }
 
 /* Modal genérico de confirmação com motivo obrigatório (Suspender / Cancelar / Retornar) */
