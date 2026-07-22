@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Jornada Inteligente da Catarata</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <div id="app-header"></div>
+
+  <main class="page">
+    <h1 style="font-size:1.3rem; margin: 0 0 .25rem; color: var(--slate-900);">Dashboard</h1>
+    <p style="color: var(--slate-500); font-size: .88rem; margin: 0 0 1.1rem;">
+      Visão gerencial em tempo real da operação — gargalos, riscos e produtividade
+    </p>
+
+    <div class="kpi-strip" id="dash-kpi-strip"></div>
+
+    <div class="dash-grid">
+      <div class="section-card">
+        <h3>Tempo por etapa — benchmark vs real (dias)</h3>
+        <div class="barra-comparativa" id="dash-barras"></div>
+        <div style="display:flex; gap:1rem; margin-top:1rem; font-size:.78rem; color:var(--slate-500);">
+          <span><span style="display:inline-block; width:10px; height:10px; background:var(--slate-400); border-radius:3px; margin-right:.3rem;"></span>Benchmark</span>
+          <span><span style="display:inline-block; width:10px; height:10px; background:var(--color-primary); border-radius:3px; margin-right:.3rem;"></span>Tempo real</span>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>Fila de casos críticos</h3>
+        <div id="dash-criticos"></div>
+      </div>
+    </div>
+
+    <div class="dash-grid" style="margin-top:1rem;">
+      <div class="section-card">
+        <h3>Heatmap de gargalos — dias parados médios por etapa</h3>
+        <div class="heatmap-grid" id="dash-heatmap"></div>
+      </div>
+
+      <div class="section-card">
+        <h3>Tendências</h3>
+        <div id="dash-tendencias"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

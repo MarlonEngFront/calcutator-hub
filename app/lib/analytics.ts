@@ -4,19 +4,9 @@
  * Lazy singleton: initialized on first logHubEvent call (client-side only).
  * isSupported() guard covers browsers that block analytics (cookie consent, incognito).
  */
-import { initializeApp, getApps } from 'firebase/app'
 import { getAnalytics, logEvent, isSupported } from 'firebase/analytics'
 import type { Analytics } from 'firebase/analytics'
-
-const firebaseConfig = {
-  apiKey: 'AIzaSyB3qd8BEK2ADv9nAYBdHjawUPtIUiBRA3k',
-  authDomain: 'voiston-hub.firebaseapp.com',
-  projectId: 'voiston-hub',
-  storageBucket: 'voiston-hub.firebasestorage.app',
-  messagingSenderId: '600416473513',
-  appId: '1:600416473513:web:88bbbfc7604efb3ea134b8',
-  measurementId: 'G-1XY194ST2V',
-}
+import { getFirebaseApp } from './firebase-client'
 
 let analyticsPromise: Promise<Analytics | null> | null = null
 
@@ -26,8 +16,7 @@ function getAnalyticsInstance(): Promise<Analytics | null> {
     analyticsPromise = isSupported()
       .then((supported) => {
         if (!supported) return null
-        const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig)
-        return getAnalytics(app)
+        return getAnalytics(getFirebaseApp())
       })
       .catch(() => null)
   }

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { ParsedBiometry, BiometryMeta, SurgeryParams, KeratometryReadings, KeratometryReading } from '@/app/stores/biometry-store'
+import ToricIndicationBanner from '@/app/components/ToricIndicationBanner'
 
 // ─── Design tokens — light theme ───────────────────────────────────────────────
 const CARD_BG      = '#f8fafc'
@@ -108,12 +109,37 @@ interface BioInputProps { field: string; value: number | undefined; original?: n
 function BioInput({ field, value, original, onChange, showStatus = true, compact }: BioInputProps) {
   const d = DECIMALS[field] ?? 2
   const status = fieldStatus(field, value, original)
+  const [focused, setFocused] = useState(false)
+  const [text, setText] = useState(toFixed(value, field))
+
+  // Só re-sincroniza com o valor "canônico" quando o campo não está em foco —
+  // enquanto o usuário digita, o texto local manda (evita o input "brigar"
+  // com a digitação e reformatar a cada tecla, que era o bug de só dar pra
+  // usar as setinhas pra cima/baixo).
+  useEffect(() => {
+    if (!focused) setText(toFixed(value, field))
+  }, [value, field, focused])
+
+  const commit = (raw: string) => {
+    const normalized = raw.replace(',', '.').trim()
+    const v = parseFloat(normalized)
+    if (!isNaN(v)) onChange(v)
+  }
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
       <input
-        type="number" step={d === 0 ? 1 : 0.01}
-        value={toFixed(value, field)}
-        onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
+        type="text" inputMode="decimal"
+        value={text}
+        onFocus={() => setFocused(true)}
+        onChange={(e) => {
+          const raw = e.target.value
+          if (/^-?\d*[.,]?\d*$/.test(raw)) {
+            setText(raw)
+            commit(raw)
+          }
+        }}
+        onBlur={() => { setFocused(false); setText(toFixed(value, field)) }}
         className={`input-biometric ${status === 'warn' ? 'warn' : ''}`}
         title={status === 'edited' && original != null ? `Editado (original: ${original.toFixed(d)})` : ''}
         style={{
@@ -587,6 +613,9 @@ export default function ValidatePage() {
           ))}
         </div>
       </div>
+
+      {/* ── Indicação de LIO tórica ─────────────────────────────────────────── */}
+      <ToricIndicationBanner od={biometry.OD} oe={biometry.OE} className="mb-4" />
 
       {/* ── Alertas ─────────────────────────────────────────────────────────── */}
       {(isManualEntry || hasWarnings) && (

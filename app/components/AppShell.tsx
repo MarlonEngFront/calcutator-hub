@@ -1,8 +1,9 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/app/lib/useAuth'
 
 const STEPS = [
   { label: 'Upload',    path: '/',              description: 'Envie o exame' },
@@ -20,9 +21,73 @@ function getStepIndex(pathname: string) {
   return 0
 }
 
+function UserMenu() {
+  const { user, profile, signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  if (!user) return null
+
+  const name = profile?.displayName || user.displayName || user.email || 'Usuário'
+  const photo = profile?.photoURL || user.photoURL
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || 'U'
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-slate-100 transition-colors"
+        aria-label="Menu do usuário"
+      >
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- avatar externo do Google, sem next/image
+          <img
+            src={photo}
+            alt={name}
+            referrerPolicy="no-referrer"
+            className="w-8 h-8 rounded-full object-cover border border-slate-200"
+          />
+        ) : (
+          <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+            {initials}
+          </span>
+        )}
+        <span className="hidden md:inline text-sm font-medium text-gray-700 max-w-[140px] truncate">{name}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50">
+          <div className="px-3 py-2 border-b border-slate-100">
+            <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
+            {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
+          </div>
+          <button
+            onClick={() => {
+              setOpen(false)
+              signOut()
+            }}
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Sair
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const currentStep = getStepIndex(pathname)
+  const { profile } = useAuth()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,55 +112,66 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                 6 calculadoras disponíveis
               </span>
+              {profile?.role === 'admin' && (
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-full transition-colors"
+                >
+                  Admin
+                </Link>
+              )}
+              <UserMenu />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Progress Steps */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between max-w-2xl">
-            {STEPS.map((step, index) => {
-              const isActive = index === currentStep
-              const isDone = index < currentStep
-              const isLast = index === STEPS.length - 1
+      {/* Progress Steps (escondido fora do fluxo das calculadoras, ex.: /admin) */}
+      {!pathname.startsWith('/admin') && (
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between max-w-2xl">
+              {STEPS.map((step, index) => {
+                const isActive = index === currentStep
+                const isDone = index < currentStep
+                const isLast = index === STEPS.length - 1
 
-              return (
-                <div key={step.path} className="flex items-center flex-1">
-                  <div className="flex items-center gap-2.5">
-                    {/* Circle */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                        isDone
-                          ? 'bg-blue-600 text-white'
-                          : isActive
-                          ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                          : 'bg-slate-100 text-slate-400'
-                      }`}
-                    >
-                      {isDone ? '✓' : index + 1}
-                    </div>
-                    {/* Label */}
-                    <div className="hidden sm:block">
-                      <div className={`text-sm font-semibold ${isActive ? 'text-blue-600' : isDone ? 'text-gray-700' : 'text-gray-400'}`}>
-                        {step.label}
+                return (
+                  <div key={step.path} className="flex items-center flex-1">
+                    <div className="flex items-center gap-2.5">
+                      {/* Circle */}
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                          isDone
+                            ? 'bg-blue-600 text-white'
+                            : isActive
+                            ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                            : 'bg-slate-100 text-slate-400'
+                        }`}
+                      >
+                        {isDone ? '✓' : index + 1}
                       </div>
-                      <div className={`text-xs ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
-                        {step.description}
+                      {/* Label */}
+                      <div className="hidden sm:block">
+                        <div className={`text-sm font-semibold ${isActive ? 'text-blue-600' : isDone ? 'text-gray-700' : 'text-gray-400'}`}>
+                          {step.label}
+                        </div>
+                        <div className={`text-xs ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
+                          {step.description}
+                        </div>
                       </div>
                     </div>
+                    {/* Connector */}
+                    {!isLast && (
+                      <div className={`flex-1 h-0.5 mx-3 rounded ${index < currentStep ? 'bg-blue-600' : 'bg-slate-200'}`} />
+                    )}
                   </div>
-                  {/* Connector */}
-                  {!isLast && (
-                    <div className={`flex-1 h-0.5 mx-3 rounded ${index < currentStep ? 'bg-blue-600' : 'bg-slate-200'}`} />
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <main

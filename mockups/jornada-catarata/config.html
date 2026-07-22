@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configuração de Etapas — Jornada Inteligente da Catarata</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <div id="app-header"></div>
+
+  <main class="page">
+    <h1 style="font-size:1.3rem; margin: 0 0 .25rem; color: var(--slate-900);">Configuração de Etapas</h1>
+    <p style="color: var(--slate-500); font-size: .88rem; margin: 0 0 1.1rem;">
+      Personalize o fluxo da sua clínica — cada clínica pode ter mais ou menos etapas, com tipos diferentes
+    </p>
+
+    <div class="config-grid">
+      <div class="section-card">
+        <h3>Etapas do fluxo — <span id="config-clinica"></span></h3>
+        <p style="font-size:.8rem; color: var(--slate-500); margin: 0 0 0.9rem;">
+          Desative o toggle para ocultar uma etapa do Kanban, ou remova etapas criadas por você.
+          A ordem das etapas define a ordem das colunas.
+        </p>
+        <div id="lista-etapas"></div>
+        <div style="display:flex; justify-content:flex-end; margin-top: .75rem;">
+          <button class="btn-secondary" id="btn-restaurar">Restaurar padrão</button>
+        </div>
+      </div>
+
+      <div class="section-card config-form">
+        <h3>Adicionar etapa</h3>
+        <label for="nova-nome">Nome da etapa</label>
+        <input type="text" id="nova-nome" placeholder="Ex.: Pós-consulta" maxlength="30" />
+
+        <label for="novo-tipo">Tipo</label>
+        <select id="novo-tipo">
+          <option value="tarefa">Tarefa — aguarda uma ação/entrada para evoluir</option>
+          <option value="aprovacao">Aprovação — alguém precisa aprovar para evoluir</option>
+          <option value="decisao">Decisão — depende de uma condição verificável</option>
+        </select>
+
+        <div id="wrap-subtipo" style="display:none;">
+          <label for="novo-subtipo">Natureza da decisão</label>
+          <select id="novo-subtipo">
+            <option value="documento">Documento — exige anexo comprovante</option>
+            <option value="aprovacao">Aprovação — registro de quem aprovou</option>
+            <option value="calculo">Cálculo — reconhece resultado da calculadora</option>
+          </select>
+        </div>
+
+        <div style="margin-top: 1.1rem; display:flex; justify-content:flex-end;">
+          <button class="btn-primary" id="btn-adicionar" disabled>Adicionar etapa</button>
+        </div>
+
+        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--slate-100); font-size: .78rem; color: var(--slate-500);">
+          <strong style="color: var(--slate-600);">Como funciona (demo):</strong>
+          o Kanban da Central de Planejamento reflete imediatamente as etapas ativas aqui.
+          Etapas novas aparecem como colunas vazias — a ideia é mostrar que cada clínica
+          monta o próprio fluxo com gates por tipo de etapa.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/config.js"></script>
+</body>
+</html>

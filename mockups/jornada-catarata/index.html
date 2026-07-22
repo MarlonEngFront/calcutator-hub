@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Planejamento — Jornada Inteligente da Catarata</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <div id="app-header"></div>
+
+  <main class="page">
+    <h1 style="font-size:1.3rem; margin: 0 0 .25rem; color: var(--slate-900);">Central de Planejamento</h1>
+    <p style="color: var(--slate-500); font-size: .88rem; margin: 0 0 1.1rem;">
+      Visão macro de todas as solicitações ativas · priorização, triagem e ação rápida
+    </p>
+
+    <div class="kpi-strip" id="kpi-strip"></div>
+
+    <div class="toolbar">
+      <input class="toolbar-search" id="busca" type="search" placeholder="Buscar por paciente, médico ou código..." />
+      <div class="view-switch" id="view-switch">
+        <button data-view="kanban" class="active">Kanban</button>
+        <button data-view="lista">Lista</button>
+        <button data-view="fila">Fila de Prioridade</button>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filter-bar" style="margin-bottom: 1.1rem;"></div>
+
+    <section id="view-kanban"></section>
+    <section id="view-lista" style="display:none;"></section>
+    <section id="view-fila" style="display:none;"></section>
+  </main>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/kanban.js"></script>
+</body>
+</html>

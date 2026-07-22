@@ -1,0 +1,135 @@
+/* StatusBadge / PriorityBadge / OD-OE badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.15rem 0.55rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+}
+.badge-olho-OD { background: rgba(242,145,33,.14); color: var(--color-od); }
+.badge-olho-OE { background: rgba(113,186,102,.16); color: var(--color-oe); }
+.badge-prioridade-P1 { background: var(--red-50); color: var(--color-error); }
+.badge-prioridade-P2 { background: var(--amber-50); color: var(--amber-700); }
+.badge-prioridade-P3 { background: var(--slate-100); color: var(--slate-500); }
+.badge-status { background: var(--blue-50); color: var(--color-primary); }
+
+/* SLABar */
+.sla-bar-wrap { display: flex; flex-direction: column; gap: 0.25rem; }
+.sla-bar-track { height: 8px; background: var(--slate-200); border-radius: 999px; overflow: hidden; }
+.sla-bar-fill { height: 100%; border-radius: 999px; transition: width .3s ease; }
+.sla-ok .sla-bar-fill { background: var(--color-success); }
+.sla-risco .sla-bar-fill { background: var(--amber-500); }
+.sla-vencido .sla-bar-fill { background: var(--color-error); }
+.sla-bar-label { font-size: 0.72rem; font-weight: 700; }
+.sla-ok .sla-bar-label { color: var(--color-success); }
+.sla-risco .sla-bar-label { color: var(--amber-700); }
+.sla-vencido .sla-bar-label { color: var(--color-error); }
+
+/* SolicitacaoCard */
+.solicitacao-card {
+  background: #fff;
+  border: 1px solid var(--slate-200);
+  border-left: 4px solid var(--slate-300);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  cursor: grab;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .15s ease, transform .15s ease;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.solicitacao-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.solicitacao-card.dragging { opacity: 0.4; }
+.solicitacao-card.card-vencido { border-left-color: var(--color-error); }
+.solicitacao-card.card-risco { border-left-color: var(--amber-500); }
+.solicitacao-card.card-alerta-clinico { animation: pulse-border 1.6s ease-in-out infinite; }
+@keyframes pulse-border {
+  0%, 100% { box-shadow: var(--shadow-sm), 0 0 0 0 rgba(220,38,38,.35); }
+  50% { box-shadow: var(--shadow-sm), 0 0 0 4px rgba(220,38,38,.15); }
+}
+
+.card-header-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.card-paciente-nome { font-size: 0.88rem; font-weight: 700; color: var(--slate-900); line-height: 1.2; }
+.card-codigo { font-size: 0.7rem; color: var(--slate-400); font-weight: 600; }
+.card-meta-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem; color: var(--slate-500); }
+.card-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.card-avatar {
+  width: 1.5rem; height: 1.5rem; border-radius: 999px; background: var(--color-primary);
+  color: #fff; font-size: 0.65rem; font-weight: 800; display: flex; align-items: center; justify-content: center;
+}
+.card-score-ia {
+  font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.45rem; border-radius: 6px;
+  background: var(--slate-100); color: var(--slate-600);
+}
+.card-score-ia.alto { background: var(--red-50); color: var(--color-error); }
+.card-alertas-icons { display: flex; gap: 0.2rem; font-size: 0.8rem; }
+.card-pendencias { font-size: 0.72rem; color: var(--color-error); font-weight: 700; }
+.card-tempo-parado { font-size: 0.72rem; color: var(--slate-400); display: flex; align-items: center; gap: 0.2rem; }
+
+/* AlertCard */
+.alert-card {
+  display: flex; gap: 0.6rem; align-items: flex-start;
+  padding: 0.65rem 0.75rem; border-radius: var(--radius-md);
+  border: 1px solid var(--slate-200); font-size: 0.82rem;
+}
+.alert-card.sev-critica { background: var(--red-50); border-color: var(--red-200); }
+.alert-card.sev-alta { background: var(--amber-50); border-color: var(--amber-200); }
+.alert-card.sev-media { background: var(--slate-50); border-color: var(--slate-200); }
+.alert-card .cat { font-weight: 700; text-transform: uppercase; font-size: 0.68rem; letter-spacing: .03em; color: var(--slate-500); }
+.alert-card .msg { color: var(--slate-800); margin: 0.15rem 0; }
+.alert-card .dest { color: var(--slate-500); font-size: 0.74rem; }
+
+/* ChecklistItem */
+.checklist-item { display: flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0; border-bottom: 1px solid var(--slate-100); font-size: 0.85rem; }
+.checklist-item:last-child { border-bottom: none; }
+.checklist-dot { width: 0.85rem; height: 0.85rem; border-radius: 999px; flex-shrink: 0; }
+.checklist-item.concluido .checklist-dot { background: var(--color-success); }
+.checklist-item.pendente .checklist-dot { background: var(--slate-300); }
+.checklist-item.bloqueado .checklist-dot { background: var(--color-error); }
+.checklist-item.concluido span.label { color: var(--slate-500); text-decoration: line-through; }
+.checklist-item.pendente span.label { color: var(--slate-800); font-weight: 600; }
+
+/* TaskItem */
+.task-item { padding: 0.55rem 0; border-bottom: 1px solid var(--slate-100); font-size: 0.85rem; }
+.task-item:last-child { border-bottom: none; }
+.task-item .titulo { font-weight: 700; color: var(--slate-800); }
+.task-item .meta { display: flex; gap: 0.5rem; font-size: 0.72rem; color: var(--slate-500); margin-top: 0.15rem; flex-wrap: wrap; }
+.task-origem { padding: 0.05rem 0.4rem; border-radius: 6px; font-weight: 700; }
+.task-origem.IA { background: #ede9fe; color: #6d28d9; }
+.task-origem.Sistema { background: var(--blue-50); color: var(--color-primary); }
+.task-origem.Usuario { background: var(--slate-100); color: var(--slate-600); }
+
+/* TimelineEvent */
+.timeline-list { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--slate-200); }
+.timeline-event { position: relative; padding: 0 0 1rem 1.1rem; }
+.timeline-event::before {
+  content: ''; position: absolute; left: -5.5px; top: 3px;
+  width: 9px; height: 9px; border-radius: 999px; background: var(--color-primary); border: 2px solid #fff;
+}
+.timeline-event.origem-ia::before { background: #7c3aed; }
+.timeline-event.origem-sistema::before { background: var(--slate-400); }
+.timeline-event .t-time { font-size: 0.7rem; color: var(--slate-400); font-weight: 700; }
+.timeline-event .t-desc { font-size: 0.83rem; color: var(--slate-700); }
+.timeline-event .t-tipo { font-size: 0.68rem; color: var(--slate-400); }
+
+.mini-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.mini-timeline li { font-size: 0.75rem; color: var(--slate-300); border-left: 2px solid rgba(255,255,255,.15); padding-left: 0.6rem; }
+.mini-timeline li .t-time { display: block; font-size: 0.68rem; color: var(--slate-400); }
+
+/* Exames/Documentos list */
+.item-row { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--slate-100); font-size: 0.82rem; }
+.item-row:last-child { border-bottom: none; }
+.status-pill { font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; }
+.status-pill.aguardando, .status-pill.pendente { background: var(--slate-100); color: var(--slate-500); }
+.status-pill.recebido, .status-pill.anexado { background: var(--blue-50); color: var(--color-primary); }
+.status-pill.validado, .status-pill.assinado { background: var(--green-50); color: var(--green-700); }
+.status-pill.rejeitado { background: var(--red-50); color: var(--color-error); }
+
+/* KPI tile */
+.kpi-tile { background: #fff; border: 1px solid var(--slate-200); border-radius: var(--radius-lg); padding: 0.9rem 1rem; }
+.kpi-tile .valor { font-size: 1.6rem; font-weight: 800; color: var(--slate-900); }
+.kpi-tile .label { font-size: 0.72rem; color: var(--slate-500); font-weight: 600; }
+.kpi-tile.destaque .valor { color: var(--color-error); }
+
+/* Comment thread */
+.comment { padding: 0.6rem 0; border-bottom: 1px solid var(--slate-100); font-size: 0.85rem; }
+.comment .autor { font-weight: 700; color: var(--slate-800); }
+.comment .texto { color: var(--slate-600); margin-top: 0.1rem; }
+.comment .texto .mencao { color: var(--color-primary); font-weight: 700; }

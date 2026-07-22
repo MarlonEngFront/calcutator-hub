@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3003
+    },
+    {
+      "name": "jornada-catarata-mock",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "mockups/jornada-catarata"],
+      "port": 4173
     }
   ]
 }

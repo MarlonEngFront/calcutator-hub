@@ -8,6 +8,8 @@ import {
   getLensesByManufacturer,
   type CalcLens,
 } from '@/app/lib/calculator-lens-catalogs'
+import { isToricLensCode } from '@/app/lib/astigmatism'
+import ToricIndicationBanner from '@/app/components/ToricIndicationBanner'
 
 export default function SelecaoLentesPage() {
   const router = useRouter()
@@ -52,6 +54,9 @@ export default function SelecaoLentesPage() {
           Escolha até 3 LIOs para comparar — uma lente por fabricante ou múltiplas
         </p>
       </div>
+
+      {/* Indicação de LIO tórica */}
+      <ToricIndicationBanner od={biometry.OD} oe={biometry.OE} />
 
       {/* Biometry summary */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4">
@@ -143,6 +148,7 @@ export default function SelecaoLentesPage() {
                 {lensesForMfr.map((lens) => {
                   const isSelected = selectedLenses.some((l) => l.code === lens.code)
                   const disabled   = !isSelected && selectedLenses.length >= 3
+                  const isToric    = isToricLensCode(lens.code)
                   return (
                     <button
                       key={lens.code}
@@ -156,7 +162,14 @@ export default function SelecaoLentesPage() {
                           : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm cursor-pointer'
                       }`}
                     >
-                      <div className="font-semibold text-gray-900">{lens.family}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-gray-900">{lens.family}</span>
+                        {isToric && (
+                          <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                            Tórica
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-500 mt-0.5 truncate">{lens.label}</div>
                       {lens.aConstant != null && (
                         <div className="text-xs font-mono text-blue-600 mt-2">A = {lens.aConstant.toFixed(1)}</div>
