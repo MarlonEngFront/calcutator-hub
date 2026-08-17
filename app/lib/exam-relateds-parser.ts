@@ -455,6 +455,10 @@ export function parseExamRelateds(
   if (odFailed || oeFailed) {
     console.log(
       '[parseExamRelateds] Critical fields (AL/K1/K2) not resolved despite data present.',
+      'OD AL/K1/K2 raw:', odExtracted.raw['AL'], odExtracted.raw['K1'], odExtracted.raw['K2'],
+      'OD AL/K1/K2 numeric:', odExtracted.numeric['AL'], odExtracted.numeric['K1'], odExtracted.numeric['K2'],
+      'OE AL/K1/K2 raw:', oeExtracted.raw['AL'], oeExtracted.raw['K1'], oeExtracted.raw['K2'],
+      'OE AL/K1/K2 numeric:', oeExtracted.numeric['AL'], oeExtracted.numeric['K1'], oeExtracted.numeric['K2'],
       'OD raw keys:', Object.keys(odExtracted.raw),
       'OE raw keys:', Object.keys(oeExtracted.raw),
     )
