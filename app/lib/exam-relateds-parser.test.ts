@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeEyeData, parseExamRelateds, unwrapExamRelatedsPayload } from './exam-relateds-parser'
+import { eyeDataCriticalFieldsResolved, normalizeEyeData, parseExamRelateds, unwrapExamRelatedsPayload } from './exam-relateds-parser'
 
 describe('unwrapExamRelatedsPayload', () => {
   it('returns root when GroupedMeasurement is top-level', () => {
@@ -60,6 +60,58 @@ describe('parseExamRelateds Nidek K refs', () => {
     expect(session?.kReadings?.ref2dot4?.OD?.K1).toBe(44.12)
     expect(session?.kReadings?.ref3dot3?.OD?.K2).toBe(45.61)
     expect(session?.rawMeasurements?.OD.K1_2dot4).toBeUndefined()
+  })
+})
+
+describe('parseExamRelateds recusa payload sem AL/K1/K2 reconhecível', () => {
+  // Bug real: Zeiss IOLMaster 700 no hub — GroupedMeasurement vinha com
+  // MeasurementType só com ID (sem Name/DisplayName). extractSideData guardava
+  // esses valores só como `numeric['__id_N']`, então o guard de "numeric vazio"
+  // não pegava (havia chaves), mas find() nunca casava nada — todo campo caía
+  // no default hardcoded (AL 23.50, K1 43.00...) como se fosse medida real.
+  it('retorna null quando as medidas só têm ID, sem Name/DisplayName', () => {
+    const session = parseExamRelateds(
+      {
+        GroupedMeasurement: [
+          {
+            Side: 2,
+            LabelGroups: [
+              {
+                TypeGroups: [
+                  { MeasurementType: { ID: 101 }, Measurements: [{ DoubleValue: 23.57 }] },
+                  { MeasurementType: { ID: 102 }, Measurements: [{ DoubleValue: 43.95 }] },
+                  { MeasurementType: { ID: 103 }, Measurements: [{ DoubleValue: 45.06 }] },
+                ],
+              },
+            ],
+          },
+          {
+            Side: 1,
+            LabelGroups: [
+              {
+                TypeGroups: [
+                  { MeasurementType: { ID: 101 }, Measurements: [{ DoubleValue: 23.24 }] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      123,
+      86,
+    )
+
+    expect(session).toBeNull()
+  })
+
+  it('eyeDataCriticalFieldsResolved reporta AL/K1/K2 ausentes quando só há chaves não reconhecidas', () => {
+    const resolved = eyeDataCriticalFieldsResolved({ DeltaK: 44.7 })
+    expect(resolved).toEqual({ AL: false, K1: false, K2: false })
+  })
+
+  it('eyeDataCriticalFieldsResolved reporta true quando rótulos batem', () => {
+    const resolved = eyeDataCriticalFieldsResolved({ AL: 23.57, K1: 43.95, K2: 45.06 })
+    expect(resolved).toEqual({ AL: true, K1: true, K2: true })
   })
 })
 

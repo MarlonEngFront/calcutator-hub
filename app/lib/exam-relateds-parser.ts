@@ -131,7 +131,16 @@ function flattenNumericValues(obj: Record<string, unknown>): Record<string, numb
 // ── normalizeEyeData ──────────────────────────────────────────────────────────
 // Portado exato de jjvisionpro — suporta Nidek, IOLMaster, Argos, Pentacam, etc.
 
-export function normalizeEyeData(raw: Record<string, number>): EyeData {
+/** Campos críticos sem os quais o cálculo de LIO não é seguro — ver eyeDataCriticalFieldsResolved. */
+export interface CriticalFieldsResolved {
+  AL: boolean
+  K1: boolean
+  K2: boolean
+}
+
+function normalizeEyeDataCore(
+  raw: Record<string, number>
+): { data: EyeData; resolved: CriticalFieldsResolved } {
   const lc: Record<string, number> = {}
   for (const [k, v] of Object.entries(raw)) lc[k.toLowerCase().trim()] = v
 
@@ -234,25 +243,43 @@ export function normalizeEyeData(raw: Record<string, number>): EyeData {
   )
 
   return {
-    AL:        AL        ?? 23.50,
-    K1:        K1        ?? 43.00,
-    K2:        K2        ?? 44.00,
-    K1Axis,
-    K2Axis,
-    TK1,
-    TK2,
-    ACD:       ACD       ?? 3.10,
-    WTW:       WTW       ?? 11.8,
-    CCT:       CCT       ?? 540,
-    refTarget: find('reftarget', 'target ref', 'targetref', 'ref target', 'refr. alvo', 'refração alvo') ?? 0,
-    Cyl:       Cyl       ?? 0,
-    Axis:      Axis      ?? 0,
-    LT:        LT        ?? 4.20,
-    Q:         find('q', 'asphericity', 'q factor'),
-    PA:        find('pa', 'posterior/anterior', 'pa ratio'),
-    SIA:       0.10,
-    SIAAxis:   120,
+    data: {
+      AL:        AL        ?? 23.50,
+      K1:        K1        ?? 43.00,
+      K2:        K2        ?? 44.00,
+      K1Axis,
+      K2Axis,
+      TK1,
+      TK2,
+      ACD:       ACD       ?? 3.10,
+      WTW:       WTW       ?? 11.8,
+      CCT:       CCT       ?? 540,
+      refTarget: find('reftarget', 'target ref', 'targetref', 'ref target', 'refr. alvo', 'refração alvo') ?? 0,
+      Cyl:       Cyl       ?? 0,
+      Axis:      Axis      ?? 0,
+      LT:        LT        ?? 4.20,
+      Q:         find('q', 'asphericity', 'q factor'),
+      PA:        find('pa', 'posterior/anterior', 'pa ratio'),
+      SIA:       0.10,
+      SIAAxis:   120,
+    },
+    resolved: { AL: AL != null, K1: K1 != null, K2: K2 != null },
   }
+}
+
+export function normalizeEyeData(raw: Record<string, number>): EyeData {
+  return normalizeEyeDataCore(raw).data
+}
+
+/**
+ * Indica se AL/K1/K2 foram de fato encontrados no payload (não defaults).
+ * Usado por parseExamRelateds para recusar sessão em vez de mostrar defaults
+ * hardcoded como se fossem medida real (ver bug Zeiss IOLMaster 700 — payload
+ * com MeasurementType sem Name/DisplayName, só ID, nenhum find() casava e o
+ * guard de "numeric vazio" não pegava porque outras chaves __id_N existiam).
+ */
+export function eyeDataCriticalFieldsResolved(raw: Record<string, number>): CriticalFieldsResolved {
+  return normalizeEyeDataCore(raw).resolved
 }
 
 /** Desembrulha payload Relateds (axios .data, Exam.*, etc.) antes do parse. */
@@ -381,6 +408,15 @@ export function parseExamRelateds(
       return null
     }
 
+    // Payload não vazio mas sem AL/K1/K2 reconhecíveis (ex.: MeasurementType só com
+    // ID, sem Name/DisplayName) — recusar em vez de mostrar defaults hardcoded como
+    // dado real. Ver eyeDataCriticalFieldsResolved.
+    const flatResolved = eyeDataCriticalFieldsResolved(flat)
+    if (!flatResolved.AL || !flatResolved.K1 || !flatResolved.K2) {
+      console.log('[parseExamRelateds] Critical fields (AL/K1/K2) not resolved from flat payload — raw keys:', Object.keys(flat))
+      return null
+    }
+
     console.log('[parseExamRelateds] Returning session with extracted data:', Object.keys(flat))
     return {
       OD: normalizeEyeData(flat),
@@ -403,6 +439,25 @@ export function parseExamRelateds(
   // dois olhos com os defaults hardcoded (AL 23.50, K1 43.00 etc.) como se fossem dado
   // real — silencioso, clinicamente perigoso (zera astigmatismo real).
   if (Object.keys(odExtracted.numeric).length === 0 && Object.keys(oeExtracted.numeric).length === 0) {
+    return null
+  }
+
+  // Lado com medidas presentes mas sem AL/K1/K2 reconhecíveis (ex.: MeasurementType
+  // só com ID, sem Name/DisplayName — visto no Zeiss IOLMaster 700 em produção) —
+  // recusar em vez de deixar normalizeEyeData preencher defaults hardcoded como se
+  // fossem dado real extraído.
+  const odHasData = Object.keys(odExtracted.numeric).length > 0
+  const oeHasData = Object.keys(oeExtracted.numeric).length > 0
+  const odResolved = odHasData ? eyeDataCriticalFieldsResolved(odExtracted.numeric) : null
+  const oeResolved = oeHasData ? eyeDataCriticalFieldsResolved(oeExtracted.numeric) : null
+  const odFailed = odResolved != null && (!odResolved.AL || !odResolved.K1 || !odResolved.K2)
+  const oeFailed = oeResolved != null && (!oeResolved.AL || !oeResolved.K1 || !oeResolved.K2)
+  if (odFailed || oeFailed) {
+    console.log(
+      '[parseExamRelateds] Critical fields (AL/K1/K2) not resolved despite data present.',
+      'OD raw keys:', Object.keys(odExtracted.raw),
+      'OE raw keys:', Object.keys(oeExtracted.raw),
+    )
     return null
   }
 
