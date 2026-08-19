@@ -1,0 +1,48 @@
+name: Biometry ESCRS canary
+
+# Canário diário: sobe uma biometria real, seleciona lente ZCB00 e calcula via
+# ESCRS (a única calculadora com pipeline de reCAPTCHA/2captcha — o elo mais
+# frágil da aplicação). Roda headed sob xvfb porque o login via popup do Google
+# falha silenciosamente em Chromium headless (bug conhecido do Firebase Auth).
+on:
+  schedule:
+    - cron: '0 13 * * *' # 10:00 BRT (UTC-3, sem horário de verão)
+  workflow_dispatch: {}
+
+jobs:
+  biometry-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Restaura sessão do Google salva
+        run: printf '%s' "$AUTH_STATE_JSON" > auth-state.json
+        env:
+          AUTH_STATE_JSON: ${{ secrets.VOISTON_AUTH_STATE_JSON }}
+
+      - name: Roda o canário (headed via xvfb — headless trava no login do Google)
+        run: xvfb-run --auto-servernum -- node scripts/biometry-escrs-canary.mjs
+        env:
+          HEADED: '1'
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          VOISTON_EMAIL: ${{ secrets.VOISTON_EMAIL }}
+          VOISTON_PASSWORD: ${{ secrets.VOISTON_PASSWORD }}
+
+      - name: Sobe evidências (screenshots/texto) mesmo se falhar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: biometry-canary-${{ github.run_id }}
+          path: biometry-artifacts/
+          retention-days: 14
+          if-no-files-found: ignore
