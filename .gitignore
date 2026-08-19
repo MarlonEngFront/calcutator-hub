@@ -27,3 +27,7 @@ Thumbs.db
 
 # Firebase CLI cache
 .firebase/
+
+# Canário de biometria (scripts/biometry-escrs-canary.mjs)
+auth-state.json
+biometry-artifacts/
