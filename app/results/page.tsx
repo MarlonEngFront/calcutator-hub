@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { CalculationResult, ParsedBiometry, KeratometryReadings } from '@/app/stores/biometry-store'
+import { useExamPreviewUrl } from '@/app/lib/use-exam-preview'
 
 // ── K source detection ─────────────────────────────────────────────────────────
 function detectKSource(biometry: ParsedBiometry | null, kReadings: KeratometryReadings | null): string {
@@ -432,7 +433,8 @@ function BiometrySummaryCard({
   const [open, setOpen] = useState(true)
   const isPDF   = meta.fileType === 'application/pdf'
   const isImage = !!meta.fileType?.startsWith('image/')
-  const hasFile = !!fileDataUrl && (isPDF || isImage)
+  const { url: previewUrl, status: previewStatus } = useExamPreviewUrl(fileDataUrl)
+  const canShowFile = (isPDF || isImage) && previewStatus !== 'unavailable' && previewStatus !== 'checking' && !!previewUrl
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -454,12 +456,19 @@ function BiometrySummaryCard({
         </span>
       </button>
 
-      {open && hasFile && (
+      {open && canShowFile && (
         <div className="border-t border-slate-200">
           <div className="px-6 py-2.5 flex items-center justify-between gap-3 bg-slate-800">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Exame original</span>
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+              Exame original
+              {previewStatus === 'restored' && (
+                <span className="ml-2 normal-case font-normal text-teal-400" title="Recuperado do cache local do navegador">
+                  ↺ restaurado do cache
+                </span>
+              )}
+            </span>
             <a
-              href={fileDataUrl!}
+              href={previewUrl!}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-teal-400 hover:underline"
@@ -470,7 +479,7 @@ function BiometrySummaryCard({
           <div className="bg-slate-100" style={{ height: '60vh' }}>
             {isPDF && (
               <embed
-                src={`${fileDataUrl}#zoom=90&pagemode=none`}
+                src={`${previewUrl}#zoom=90&pagemode=none`}
                 type="application/pdf"
                 style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
               />
@@ -478,10 +487,20 @@ function BiometrySummaryCard({
             {isImage && (
               <div className="w-full h-full overflow-y-auto flex items-start justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
+                <img src={previewUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {open && (isPDF || isImage) && previewStatus === 'unavailable' && (
+        <div className="border-t border-slate-200 px-6 py-3 bg-amber-50 flex items-start gap-2">
+          <span className="text-amber-500 mt-0.5">ℹ️</span>
+          <p className="text-xs text-amber-800">
+            Imagem/PDF original não está mais disponível nesta sessão (o cache local do navegador foi limpo).
+            Os dados biométricos abaixo já foram extraídos e continuam válidos.
+          </p>
         </div>
       )}
 

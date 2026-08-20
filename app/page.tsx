@@ -9,6 +9,7 @@ import { HubUploadManager } from '@/app/lib/hub-upload-manager'
 import type { HubUploadState } from '@/app/lib/hub-upload-manager'
 import { logHubEvent } from '@/app/lib/analytics'
 import { UploadProgressModal } from '@/app/components/UploadProgressModal'
+import { saveExamFile } from '@/app/lib/exam-file-store'
 
 const PROCESS_STEPS = [
   {
@@ -97,6 +98,8 @@ export default function UploadPage() {
       // Blob URL for inline preview — no base64 conversion, works in embed/img, not persisted
       const blobUrl = URL.createObjectURL(file)
       setFileDataUrl(blobUrl)
+      // Camada extra de persistência — sobrevive a reload, ao contrário do blob acima
+      void saveExamFile(file)
       managerRef.current?.cancel()
 
       const manager = new HubUploadManager({

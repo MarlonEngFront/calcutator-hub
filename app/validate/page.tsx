@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useBiometryStore } from '@/app/stores/biometry-store'
 import type { ParsedBiometry, BiometryMeta, SurgeryParams, KeratometryReadings, KeratometryReading } from '@/app/stores/biometry-store'
 import ToricIndicationBanner from '@/app/components/ToricIndicationBanner'
+import { useExamPreviewUrl } from '@/app/lib/use-exam-preview'
+import { clearExamFile } from '@/app/lib/exam-file-store'
 
 // ─── Design tokens — light theme ───────────────────────────────────────────────
 const CARD_BG      = '#f8fafc'
@@ -459,8 +461,7 @@ function EyeTable({ eye, eyeData, originalEyeData, kReadings, rawMeasurements, s
 interface ExamViewerPanelProps { fileDataUrl: string | null; meta: BiometryMeta; biometry: ParsedBiometry }
 function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) {
   const isPDF   = meta.fileType === 'application/pdf'
-  // fileDataUrl is now a blob: URL (created via URL.createObjectURL in upload page)
-  // No conversion needed — works directly in embed/img
+  const { url: previewUrl, status: previewStatus } = useExamPreviewUrl(fileDataUrl)
 
   const rows: Array<{ label: string; field: keyof ParsedBiometry['OD']; unit: string; d: number }> = [
     { label: 'AL',  field: 'AL',  unit: 'mm', d: 2 },
@@ -476,9 +477,9 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
     v != null && Number.isFinite(v) ? (d === 0 ? Math.round(v).toString() : v.toFixed(d)) : '—'
 
   const isImage = meta.fileType?.startsWith('image/')
-  const hasFile = !!fileDataUrl && (isPDF || isImage)
+  const canShowFile = (isPDF || isImage) && previewStatus !== 'unavailable' && previewStatus !== 'checking'
 
-  if (hasFile) {
+  if (canShowFile && previewUrl) {
     return (
       <div style={{
         borderRadius: 12, overflow: 'hidden',
@@ -494,17 +495,22 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
           <span style={{ fontSize: '0.78rem', fontWeight: 700, color: TEXT_MED, flex: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Biometria Original
           </span>
-          <a href={fileDataUrl!} target="_blank" rel="noopener noreferrer"
+          {previewStatus === 'restored' && (
+            <span style={{ fontSize: '0.68rem', color: TEAL, fontWeight: 600 }} title="Recuperado do cache local do navegador">
+              ↺ restaurado do cache
+            </span>
+          )}
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer"
             style={{ fontSize: '0.74rem', color: TEXT_MED, padding: '0.22rem 0.55rem', borderRadius: 4, border: `1px solid ${BORDER}`, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             ↗ Nova Aba
           </a>
         </div>
         <div style={{ overflow: 'hidden', background: '#f1f5f9', height: '78vh' }}>
-          {isPDF && fileDataUrl && (
+          {isPDF && (
             <embed
               // pagemode=none fecha a barra lateral de miniaturas; zoom=90 abre em 90% —
               // parâmetros padrão do visualizador de PDF nativo (PDF.js), lidos via hash da URL.
-              src={`${fileDataUrl}#zoom=90&pagemode=none`}
+              src={`${previewUrl}#zoom=90&pagemode=none`}
               type="application/pdf"
               style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
             />
@@ -512,7 +518,7 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
           {isImage && (
             <div className="w-full h-full overflow-y-auto flex items-start justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
+              <img src={previewUrl} className="w-full h-auto object-contain" alt="Biometria original" />
             </div>
           )}
         </div>
@@ -521,7 +527,21 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
   }
 
   return (
-    <div style={{ background: CARD_BG, borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+    <div>
+      {(isPDF || isImage) && previewStatus === 'unavailable' && (
+        <div style={{
+          marginBottom: '0.6rem', padding: '0.6rem 0.85rem', borderRadius: 8,
+          background: '#fef3e2', border: '1px solid #f3d29e',
+          fontSize: '0.78rem', color: '#8a5a10', display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
+        }}>
+          <span>ℹ️</span>
+          <span>
+            Imagem/PDF original não está mais disponível nesta sessão (o cache local do navegador foi limpo).
+            Os dados biométricos abaixo já foram extraídos e continuam válidos.
+          </span>
+        </div>
+      )}
+      <div style={{ background: CARD_BG, borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
       <div style={{ padding: '0.75rem 1rem', background: CARD_HDR, borderBottom: `1px solid ${BORDER}` }}>
         <p style={{ fontSize: '0.70rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: TEXT_MUTED }}>Biometria</p>
         <p style={{ fontSize: '0.94rem', fontWeight: 700, color: TEXT, marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -545,6 +565,7 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
@@ -673,7 +694,7 @@ export default function ValidatePage() {
 
       {/* ── Ações ───────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '0.5rem' }}>
-        <button onClick={() => { clearBiometry(); router.push('/') }} className="btn-med-secondary">← Voltar</button>
+        <button onClick={() => { clearBiometry(); void clearExamFile(); router.push('/') }} className="btn-med-secondary">← Voltar</button>
         <button
           onClick={async () => { setIsConfirming(true); await new Promise((r) => setTimeout(r, 400)); router.push('/selecaolentes') }}
           disabled={isConfirming}
