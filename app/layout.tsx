@@ -26,6 +26,7 @@ export const metadata: Metadata = {
     title: 'Voiston Hub',
   },
   icons: {
+    icon: '/icon.svg',
     apple: '/icons/apple-touch-icon.png',
   },
 }
