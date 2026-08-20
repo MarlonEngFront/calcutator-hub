@@ -1,0 +1,48 @@
+name: Deploy Hub to Firebase Hosting
+
+# Publica o Voiston Calculator Hub (voiston-hub.web.app) a cada merge na main.
+# Build estático (next build com output: 'export') + firebase hosting deploy,
+# autenticado via service account dedicada (github-hub-deploy@voiston-hub).
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'mockups/**'
+      - 'docs/**'
+      - '.github/workflows/deploy-jornada-catarata.yml'
+      - '.github/workflows/biometry-escrs-canary.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (static export)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_GATEWAY_URL: ${{ secrets.NEXT_PUBLIC_GATEWAY_URL }}
+          NEXT_PUBLIC_EXTERNAL_CALC_GATEWAY_URL: ${{ secrets.NEXT_PUBLIC_EXTERNAL_CALC_GATEWAY_URL }}
+          NEXT_PUBLIC_ENABLE_EXTERNAL_TECNIS_CALC: ${{ secrets.NEXT_PUBLIC_ENABLE_EXTERNAL_TECNIS_CALC }}
+          NEXT_PUBLIC_JJ_OWNER_EMAIL: ${{ secrets.NEXT_PUBLIC_JJ_OWNER_EMAIL }}
+          NEXT_PUBLIC_JJ_SECRET: ${{ secrets.NEXT_PUBLIC_JJ_SECRET }}
+          NEXT_PUBLIC_JJ_OWNER_ID: ${{ secrets.NEXT_PUBLIC_JJ_OWNER_ID }}
+          NEXT_PUBLIC_JJ_DATA_PARTNER_ID: ${{ secrets.NEXT_PUBLIC_JJ_DATA_PARTNER_ID }}
+          NEXT_PUBLIC_GA4_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_GA4_MEASUREMENT_ID }}
+
+      - name: Deploy to Firebase Hosting (live)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VOISTON_HUB }}'
+          projectId: voiston-hub
+          channelId: live
