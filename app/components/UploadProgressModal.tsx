@@ -6,6 +6,7 @@ interface Props {
   state: HubUploadState
   filename: string
   onCancel: () => void
+  onContinueWaiting?: () => void
 }
 
 const STEP_ICONS: Record<string, string> = {
@@ -17,7 +18,8 @@ const STEP_ICONS: Record<string, string> = {
   parsing:    '📊',
 }
 
-export function UploadProgressModal({ state, filename, onCancel }: Props) {
+export function UploadProgressModal({ state, filename, onCancel, onContinueWaiting }: Props) {
+  const isTimeout = !!state.errorMessage?.startsWith('Timeout') && !!state.examId && !!onContinueWaiting
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -103,14 +105,24 @@ export function UploadProgressModal({ state, filename, onCancel }: Props) {
         )}
 
         {/* Actions */}
-        <div className="px-6 pb-5">
+        <div className="px-6 pb-5 space-y-2">
           {state.hasError ? (
-            <button
-              onClick={onCancel}
-              className="w-full py-3 border border-slate-200 text-gray-600 rounded-xl font-medium hover:bg-slate-50 transition-colors"
-            >
-              Fechar e tentar novamente
-            </button>
+            <>
+              {isTimeout && (
+                <button
+                  onClick={onContinueWaiting}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                >
+                  ⏳ Continuar aguardando (o exame pode terminar no servidor)
+                </button>
+              )}
+              <button
+                onClick={onCancel}
+                className="w-full py-3 border border-slate-200 text-gray-600 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+              >
+                {isTimeout ? 'Cancelar e enviar de novo' : 'Fechar e tentar novamente'}
+              </button>
+            </>
           ) : !state.isComplete ? (
             <button
               onClick={onCancel}

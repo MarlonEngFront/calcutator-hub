@@ -136,6 +136,12 @@ export default function UploadPage() {
     setUploadState(null)
   }, [])
 
+  const handleContinueWaiting = useCallback(async () => {
+    const manager = managerRef.current
+    if (!manager) return
+    await manager.continueWaiting()
+  }, [])
+
   const handleDrop = useCallback(
     async (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault()
@@ -155,6 +161,7 @@ export default function UploadPage() {
         state={uploadState}
         filename={currentFile}
         onCancel={handleCancel}
+        onContinueWaiting={handleContinueWaiting}
       />
     )}
     <div className="max-w-4xl mx-auto space-y-8">

@@ -129,7 +129,7 @@ export default function SelecaoLentesPage() {
                   className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
                     activeMfr === mfr
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-white text-gray-700 border-slate-200 hover:border-blue-300 hover:text-blue-700'
+                      : 'bg-slate-50 text-gray-700 border-slate-300 hover:border-blue-300 hover:text-blue-700'
                   }`}
                 >
                   {mfr}
@@ -159,7 +159,7 @@ export default function SelecaoLentesPage() {
                           ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200 shadow-sm'
                           : disabled
                           ? 'border-slate-100 bg-slate-50 opacity-40 cursor-not-allowed'
-                          : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm cursor-pointer'
+                          : 'border-slate-300 bg-slate-50 hover:border-blue-300 hover:shadow-sm cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">

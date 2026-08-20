@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { logHubEvent } from '@/app/lib/analytics'
 import { useBiometryStore, type ParsedBiometry, type SurgeryParams } from '@/app/stores/biometry-store'
@@ -12,9 +12,11 @@ import {
 import {
   calculateSingle,
   calculateBundle,
+  checkGatewayHealth,
   type GatewayEye,
   type GatewayLens,
 } from '@/app/lib/gateway-client'
+import { checkCalculatorsStatus, type CalcOnlineStatus } from '@/app/lib/calculator-status'
 import type { IOL } from '@/app/lib/iol-catalog'
 
 
@@ -409,9 +411,40 @@ export default function CalculatorsPage() {
   const [selectedCalcs, setSelectedCalcs]     = useState<Set<string>>(new Set())
   const [isCalculating, setIsCalculating]     = useState(false)
   const [calcError, setCalcError]             = useState<string | null>(null)
-  const [isParamsOpen, setIsParamsOpen]       = useState(false)
+  const [isParamsOpen, setIsParamsOpen]       = useState(true)
   const [calcSteps, setCalcSteps]             = useState<CalcStep[]>([])
   const [showCalcModal, setShowCalcModal]     = useState(false)
+  const [calcStatus, setCalcStatus]           = useState<Record<string, CalcOnlineStatus>>({})
+  const [gatewayStatus, setGatewayStatus]     = useState<CalcOnlineStatus>('checking')
+  const [statusCheckedAt, setStatusCheckedAt] = useState<Date | null>(null)
+
+  const runStatusCheck = () => {
+    setGatewayStatus('checking')
+    setCalcStatus(Object.fromEntries(CALCULATORS.map((c) => [c.id, 'checking' as const])))
+    checkGatewayHealth()
+      .then(() => setGatewayStatus('online'))
+      .catch(() => setGatewayStatus('offline'))
+    checkCalculatorsStatus(CALCULATORS.map((c) => ({ id: c.id, url: c.url })))
+      .then((result) => { setCalcStatus(result); setStatusCheckedAt(new Date()) })
+  }
+
+  useEffect(() => {
+    runStatusCheck()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // SA60AT só está disponível no dropdown da calculadora TECNIS — trava as demais.
+  const hasSA60AT = selectedLenses.some((l) => l.family === 'SA60AT')
+
+  useEffect(() => {
+    if (!hasSA60AT) return
+    setSelectedCalcs((prev) => {
+      if ([...prev].every((id) => id === 'tecnis-toric')) return prev
+      const next = new Set(prev)
+      next.forEach((id) => { if (id !== 'tecnis-toric') next.delete(id) })
+      return next
+    })
+  }, [hasSA60AT])
 
   if (!biometry || !meta) {
     return (
@@ -428,7 +461,7 @@ export default function CalculatorsPage() {
     )
   }
 
-  const available    = CALCULATORS.filter((c) => c.status === 'available')
+  const available    = CALCULATORS.filter((c) => c.status === 'available' && (!hasSA60AT || c.id === 'tecnis-toric'))
   const allIds       = available.map((c) => c.id)
   const allSelected  = allIds.length > 0 && allIds.every((id) => selectedCalcs.has(id))
 
@@ -773,15 +806,55 @@ export default function CalculatorsPage() {
               {allSelected ? '✗ Limpar seleção' : '✓ Selecionar todas'}
             </button>
           </div>
+
+          {/* Status online */}
+          <div className="mb-4 flex items-center gap-3 text-xs text-gray-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+            <span
+              className={`flex items-center gap-1.5 font-medium ${
+                gatewayStatus === 'online' ? 'text-green-700' : gatewayStatus === 'offline' ? 'text-red-600' : 'text-slate-400'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                gatewayStatus === 'online' ? 'bg-green-500' : gatewayStatus === 'offline' ? 'bg-red-500' : 'bg-slate-300 animate-pulse'
+              }`} />
+              Gateway {gatewayStatus === 'online' ? 'online' : gatewayStatus === 'offline' ? 'indisponível' : 'verificando...'}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span>
+              {Object.values(calcStatus).filter((s) => s === 'online').length}/{CALCULATORS.length} calculadoras online
+            </span>
+            {statusCheckedAt && (
+              <span className="text-slate-400">· verificado às {statusCheckedAt.toLocaleTimeString('pt-BR')}</span>
+            )}
+            <button
+              onClick={runStatusCheck}
+              className="ml-auto text-blue-600 hover:underline font-medium"
+            >
+              🔄 Verificar novamente
+            </button>
+          </div>
+
+          {hasSA60AT && (
+            <div className="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <span className="text-amber-500">🔒</span>
+              <p className="text-sm text-amber-800">
+                A lente <span className="font-mono font-semibold">SA60AT</span> só está disponível na calculadora{' '}
+                <span className="font-semibold">TECNIS Toric</span> — as demais foram bloqueadas para esta seleção.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {CALCULATORS.map((calc) => {
-              const isSelected  = selectedCalcs.has(calc.id)
-              const isAvailable = calc.status === 'available'
+              const isSelected    = selectedCalcs.has(calc.id)
+              const lockedBySA60AT = hasSA60AT && calc.id !== 'tecnis-toric'
+              const isAvailable   = calc.status === 'available' && !lockedBySA60AT
               return (
                 <button
                   key={calc.id}
                   onClick={() => toggle(calc.id)}
                   disabled={!isAvailable}
+                  title={lockedBySA60AT ? 'Bloqueada: SA60AT só está disponível na TECNIS Toric' : undefined}
                   className={`text-left rounded-2xl border p-5 transition-all ${
                     !isAvailable
                       ? 'border-slate-100 bg-slate-50 opacity-55 cursor-not-allowed'
@@ -804,7 +877,7 @@ export default function CalculatorsPage() {
                             : 'bg-slate-100 text-slate-500 border-slate-200'
                         }`}
                       >
-                        {isAvailable ? '✓ Disponível' : 'Em breve'}
+                        {lockedBySA60AT ? '🔒 Bloqueada (SA60AT)' : isAvailable ? '✓ Disponível' : 'Em breve'}
                       </span>
                       {isAvailable && (
                         <div
@@ -829,6 +902,25 @@ export default function CalculatorsPage() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
                     {isAvailable && <span>⏱ {calc.time}</span>}
+                    <span
+                      className={`flex items-center gap-1 ${
+                        calcStatus[calc.id] === 'online'  ? 'text-green-600' :
+                        calcStatus[calc.id] === 'offline' ? 'text-red-500'   :
+                                                             'text-slate-300'
+                      }`}
+                      title={
+                        calcStatus[calc.id] === 'online'  ? 'Site respondeu ao ping' :
+                        calcStatus[calc.id] === 'offline' ? 'Site não respondeu — pode estar fora do ar' :
+                                                             'Verificando disponibilidade...'
+                      }
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        calcStatus[calc.id] === 'online'  ? 'bg-green-500' :
+                        calcStatus[calc.id] === 'offline' ? 'bg-red-500 animate-pulse' :
+                                                             'bg-slate-300 animate-pulse'
+                      }`} />
+                      {calcStatus[calc.id] === 'online' ? 'Online' : calcStatus[calc.id] === 'offline' ? 'Fora do ar?' : '...'}
+                    </span>
                     <a
                       href={calc.url}
                       target="_blank"

@@ -67,7 +67,9 @@ const STEP_DEFS: Array<Pick<UploadStep, 'id' | 'label'>> = [
 ]
 
 const POLL_START_MS  = 3_000
-const POLL_MAX_MS    = 5 * 60_000
+// O OCR/extração roda no backend da Voiston (fora deste app) e às vezes passa de 5min mesmo
+// no app.voiston.ai nativo — 5min gerava falso-timeout com o exame ainda processando no servidor.
+const POLL_MAX_MS    = 8 * 60_000
 const POLL_MAX_DELAY = 15_000
 
 const GENDER_MAP: Record<string, string> = {
@@ -178,122 +180,149 @@ export class HubUploadManager {
       this.set('confirm', { status: 'success', progress: 100 })
       if (signal.aborted) return
 
-      // 5. Polling de status
-      this.set('processing', { status: 'loading', progress: 5, message: 'Aguardando processamento...' })
-      await this.poll(examId, signal)
-      this.set('processing', { status: 'success', progress: 100 })
-      if (signal.aborted) return
-
-      // 6. Busca relateds + parse no browser
-      this.set('parsing', { status: 'loading', progress: 40, message: 'Buscando medidas biométricas...' })
-      const [relateds, fullExam] = await Promise.all([
-        clientGetExamRelateds(examId),
-        clientGetExamStatus(examId),
-      ])
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const examObj = (fullExam as any)?.Exam || fullExam
-      const examTypeId: number | undefined = examObj?.ExamType?.ID
-      const examTypeName: string | undefined =
-        typeof examObj?.ExamType?.Name === 'string' ? examObj.ExamType.Name.trim() : undefined
-
-      const relatedsRoot = unwrapExamRelatedsPayload(relateds)
-      const session = parseExamRelateds(relatedsRoot, examId, examTypeId)
-
-      if (!session) {
-        // Não substituir por normalizeEyeData({}) — isso preenche os campos com os
-        // defaults hardcoded do parser (AL 23.50, K1 43.00 etc.) como se fossem dado
-        // real extraído, sem nenhum aviso. Falha explícita aqui.
-        throw new Error('Biometria não reconhecida. Nenhuma medida foi extraída deste exame — verifique se o arquivo é um laudo suportado.')
-      }
-
-      // Enriquece metadados do paciente
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const relData = relatedsRoot as any
-      let name: string | undefined = examObj?.PatientName
-      let gender: unknown = undefined
-      let birthDate: string | undefined = examObj?.PossiblePatientDOB
-
-      const embeddedPatient = examObj?.Patient || relData?.Patient
-      if (embeddedPatient) {
-        if (!name) name = embeddedPatient.Name
-        if (embeddedPatient.Gender != null) gender = embeddedPatient.Gender
-        if (!birthDate) birthDate = embeddedPatient.Birthday || embeddedPatient.BirthDate
-      }
-
-      // Gender from flat Measurements array (Side 0, Type.Name = "Gender")
-      if (gender == null) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const flatMeasurements = (relData?.Measurements ?? (relateds as any)?.Measurements) as Array<{
-          Side?: number
-          Type?: { Name?: string; DisplayName?: string }
-          StringValue?: string
-        }> | undefined
-        if (Array.isArray(flatMeasurements)) {
-          const gm = flatMeasurements.find((m) => {
-            const n = (m.Type?.Name ?? m.Type?.DisplayName ?? '').toLowerCase().trim()
-            return n === 'gender'
-          })
-          if (gm?.StringValue) gender = gm.StringValue
-        }
-      }
-
-      // Also scan GroupedMeasurement Side 0 (non-side-specific metadata)
-      if (gender == null) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const grouped = relData?.GroupedMeasurement as Array<any> | undefined
-        if (Array.isArray(grouped)) {
-          const side0 = grouped.find((g) => g.Side === 0)
-          if (side0) {
-            for (const lg of side0.LabelGroups ?? []) {
-              for (const tg of lg.TypeGroups ?? []) {
-                const n = (tg.MeasurementType?.Name ?? tg.MeasurementType?.DisplayName ?? '').toLowerCase().trim()
-                if (n === 'gender' && tg.Measurements?.[0]?.StringValue) {
-                  gender = tg.Measurements[0].StringValue
-                }
-              }
-            }
-          }
-        }
-      }
-
-      const resolvedPatientId = examObj?.PatientID || embeddedPatient?.ID
-      if (resolvedPatientId) {
-        try {
-          const pData = await clientGetPatient(resolvedPatientId) as Record<string, unknown>
-          const pName = pData?.Name as string | undefined
-          if (pName && !pName.toLowerCase().startsWith('paciente hub')) {
-            if (!name) name = pName
-          }
-          if (gender == null && pData?.Gender != null) gender = pData.Gender
-          if (!birthDate) birthDate = pData?.Birthday as string || pData?.BirthDate as string
-        } catch { /* noop */ }
-      }
-
-      if (typeof name === 'string' && name.toLowerCase().startsWith('paciente hub')) name = undefined
-
-      let genderLabel: string | undefined
-      if (gender != null && String(gender).trim()) {
-        genderLabel = GENDER_MAP[String(gender).toLowerCase().trim()]
-      }
-
-      if (name || genderLabel || birthDate) {
-        session.patientMetadata = { name, gender: genderLabel, birthDate }
-      }
-      if (examTypeName) session.examTypeName = examTypeName
-      if (typeof examTypeId === 'number') session.examTypeId = examTypeId
-
-      this.set('parsing', { status: 'success', progress: 100 })
-      this.state.isComplete = true
-      this.state.overallProgress = 100
-      this.emit()
-      this.onComplete(session)
+      // 5-6. Polling de status + parse — extraído pra waitAndParse() pra poder
+      // ser re-chamado por continueWaiting() sem refazer o upload inteiro.
+      await this.waitAndParse(examId, signal)
     } catch (err) {
       if (this.abort.signal.aborted) return
       const msg = err instanceof Error ? err.message : 'Erro inesperado'
       const loading = this.state.steps.find((s) => s.status === 'loading')
       this.fail((loading?.id ?? 'init') as UploadStepId, msg)
     }
+  }
+
+  /**
+   * Retoma o polling do mesmo exame (sem reenviar o arquivo) após um timeout —
+   * o processamento roda no backend da Voiston e frequentemente continua mesmo
+   * depois do nosso timeout local, então vale re-checar antes de forçar reupload.
+   */
+  public async continueWaiting() {
+    const examId = this.state.examId
+    if (!examId) return
+    this.state.hasError = false
+    this.state.errorMessage = undefined
+    this.set('processing', { status: 'loading', progress: 5, message: 'Continuando a aguardar processamento...' })
+    try {
+      await this.waitAndParse(examId, this.abort.signal)
+    } catch (err) {
+      if (this.abort.signal.aborted) return
+      const msg = err instanceof Error ? err.message : 'Erro inesperado'
+      const loading = this.state.steps.find((s) => s.status === 'loading')
+      this.fail((loading?.id ?? 'processing') as UploadStepId, msg)
+    }
+  }
+
+  private async waitAndParse(examId: number, signal: AbortSignal) {
+    // 5. Polling de status
+    this.set('processing', { status: 'loading', progress: 5, message: 'Aguardando processamento...' })
+    await this.poll(examId, signal)
+    this.set('processing', { status: 'success', progress: 100 })
+    if (signal.aborted) return
+
+    // 6. Busca relateds + parse no browser
+    this.set('parsing', { status: 'loading', progress: 40, message: 'Buscando medidas biométricas...' })
+    const [relateds, fullExam] = await Promise.all([
+      clientGetExamRelateds(examId),
+      clientGetExamStatus(examId),
+    ])
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const examObj = (fullExam as any)?.Exam || fullExam
+    const examTypeId: number | undefined = examObj?.ExamType?.ID
+    const examTypeName: string | undefined =
+      typeof examObj?.ExamType?.Name === 'string' ? examObj.ExamType.Name.trim() : undefined
+
+    const relatedsRoot = unwrapExamRelatedsPayload(relateds)
+    const session = parseExamRelateds(relatedsRoot, examId, examTypeId)
+
+    if (!session) {
+      // Não substituir por normalizeEyeData({}) — isso preenche os campos com os
+      // defaults hardcoded do parser (AL 23.50, K1 43.00 etc.) como se fossem dado
+      // real extraído, sem nenhum aviso. Falha explícita aqui.
+      throw new Error('Biometria não reconhecida. Nenhuma medida foi extraída deste exame — verifique se o arquivo é um laudo suportado.')
+    }
+
+    // Enriquece metadados do paciente
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const relData = relatedsRoot as any
+    let name: string | undefined = examObj?.PatientName
+    let gender: unknown = undefined
+    let birthDate: string | undefined = examObj?.PossiblePatientDOB
+
+    const embeddedPatient = examObj?.Patient || relData?.Patient
+    if (embeddedPatient) {
+      if (!name) name = embeddedPatient.Name
+      if (embeddedPatient.Gender != null) gender = embeddedPatient.Gender
+      if (!birthDate) birthDate = embeddedPatient.Birthday || embeddedPatient.BirthDate
+    }
+
+    // Gender from flat Measurements array (Side 0, Type.Name = "Gender")
+    if (gender == null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const flatMeasurements = (relData?.Measurements ?? (relateds as any)?.Measurements) as Array<{
+        Side?: number
+        Type?: { Name?: string; DisplayName?: string }
+        StringValue?: string
+      }> | undefined
+      if (Array.isArray(flatMeasurements)) {
+        const gm = flatMeasurements.find((m) => {
+          const n = (m.Type?.Name ?? m.Type?.DisplayName ?? '').toLowerCase().trim()
+          return n === 'gender'
+        })
+        if (gm?.StringValue) gender = gm.StringValue
+      }
+    }
+
+    // Also scan GroupedMeasurement Side 0 (non-side-specific metadata)
+    if (gender == null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const grouped = relData?.GroupedMeasurement as Array<any> | undefined
+      if (Array.isArray(grouped)) {
+        const side0 = grouped.find((g) => g.Side === 0)
+        if (side0) {
+          for (const lg of side0.LabelGroups ?? []) {
+            for (const tg of lg.TypeGroups ?? []) {
+              const n = (tg.MeasurementType?.Name ?? tg.MeasurementType?.DisplayName ?? '').toLowerCase().trim()
+              if (n === 'gender' && tg.Measurements?.[0]?.StringValue) {
+                gender = tg.Measurements[0].StringValue
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const resolvedPatientId = examObj?.PatientID || embeddedPatient?.ID
+    if (resolvedPatientId) {
+      try {
+        const pData = await clientGetPatient(resolvedPatientId) as Record<string, unknown>
+        const pName = pData?.Name as string | undefined
+        if (pName && !pName.toLowerCase().startsWith('paciente hub')) {
+          if (!name) name = pName
+        }
+        if (gender == null && pData?.Gender != null) gender = pData.Gender
+        if (!birthDate) birthDate = pData?.Birthday as string || pData?.BirthDate as string
+      } catch { /* noop */ }
+    }
+
+    if (typeof name === 'string' && name.toLowerCase().startsWith('paciente hub')) name = undefined
+
+    let genderLabel: string | undefined
+    if (gender != null && String(gender).trim()) {
+      genderLabel = GENDER_MAP[String(gender).toLowerCase().trim()]
+    }
+
+    if (name || genderLabel || birthDate) {
+      session.patientMetadata = { name, gender: genderLabel, birthDate }
+    }
+    if (examTypeName) session.examTypeName = examTypeName
+    if (typeof examTypeId === 'number') session.examTypeId = examTypeId
+
+    this.set('parsing', { status: 'success', progress: 100 })
+    this.state.isComplete = true
+    this.state.overallProgress = 100
+    this.emit()
+    this.onComplete(session)
   }
 
   // ── Polling ─────────────────────────────────────────────────────────────────
@@ -306,7 +335,7 @@ export class HubUploadManager {
       const check = async () => {
         if (signal.aborted) { resolve(); return }
         if (Date.now() - start > POLL_MAX_MS) {
-          reject(new Error('Timeout: processamento demorou mais de 5 minutos'))
+          reject(new Error('Timeout: o processamento no servidor está demorando mais que o normal. Isso costuma ser lentidão temporária do lado do fornecedor, não um problema no arquivo — você pode continuar aguardando.'))
           return
         }
         count++

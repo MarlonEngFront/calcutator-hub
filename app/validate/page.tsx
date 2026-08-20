@@ -502,7 +502,9 @@ function ExamViewerPanel({ fileDataUrl, meta, biometry }: ExamViewerPanelProps) 
         <div style={{ overflow: 'hidden', background: '#f1f5f9', height: '78vh' }}>
           {isPDF && fileDataUrl && (
             <embed
-              src={fileDataUrl}
+              // pagemode=none fecha a barra lateral de miniaturas; zoom=90 abre em 90% —
+              // parâmetros padrão do visualizador de PDF nativo (PDF.js), lidos via hash da URL.
+              src={`${fileDataUrl}#zoom=90&pagemode=none`}
               type="application/pdf"
               style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
             />

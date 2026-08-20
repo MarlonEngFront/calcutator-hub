@@ -288,7 +288,7 @@ interface CalcBlockProps {
 
 function CalcBlock({ calc }: CalcBlockProps) {
   const { biometry, meta: bioMeta, surgeryParams, selectedIOL, kReadings } = useBiometryStore()
-  const [showParams, setShowParams] = useState(false)
+  const [showParams, setShowParams] = useState(true)
 
   const meta     = CALC_META[calc.calculatorId]
   const gradient = meta?.color ?? 'from-slate-600 to-slate-800'
@@ -369,7 +369,7 @@ function CalcBlock({ calc }: CalcBlockProps) {
       )}
 
       {/* Params accordion */}
-      <div className="mx-6 mt-4 rounded-xl overflow-hidden border border-slate-200">
+      <div className="mx-6 mt-4 rounded-xl overflow-hidden border border-slate-300 shadow-sm">
         <button
           onClick={() => setShowParams((v) => !v)}
           className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700 transition-colors"
@@ -410,6 +410,107 @@ function CalcBlock({ calc }: CalcBlockProps) {
   )
 }
 
+// ── Biometry summary (read-only, collapsible) ──────────────────────────────────
+const BIOMETRY_FIELD_ROWS: Array<{ label: string; render: (e: ParsedBiometry['OD']) => string }> = [
+  { label: 'AL (mm)',   render: (e) => e.AL?.toFixed(2) ?? '—' },
+  { label: 'K1 (D)',    render: (e) => e.K1 != null ? `${e.K1.toFixed(2)} @ ${e.K1Axis ?? '—'}°` : '—' },
+  { label: 'K2 (D)',    render: (e) => e.K2 != null ? `${e.K2.toFixed(2)} @ ${e.K2Axis ?? '—'}°` : '—' },
+  { label: 'Cyl / Eixo',render: (e) => e.Cyl != null ? `${e.Cyl.toFixed(2)} D @ ${e.Axis ?? '—'}°` : '—' },
+  { label: 'ACD (mm)',  render: (e) => e.ACD != null ? e.ACD.toFixed(2) : '—' },
+  { label: 'LT (mm)',   render: (e) => e.LT != null ? e.LT.toFixed(2) : '—' },
+  { label: 'WTW (mm)',  render: (e) => e.WTW != null ? e.WTW.toFixed(2) : '—' },
+  { label: 'CCT (µm)',  render: (e) => e.CCT != null ? e.CCT.toFixed(0) : '—' },
+]
+
+function BiometrySummaryCard({
+  biometry, meta, fileDataUrl,
+}: {
+  biometry: ParsedBiometry
+  meta: { filename: string; equipment?: string; patientName?: string; fileType?: string }
+  fileDataUrl: string | null
+}) {
+  const [open, setOpen] = useState(true)
+  const isPDF   = meta.fileType === 'application/pdf'
+  const isImage = !!meta.fileType?.startsWith('image/')
+  const hasFile = !!fileDataUrl && (isPDF || isImage)
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+      >
+        <div className="text-left">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🔬</span>
+            <h3 className="font-semibold text-gray-900">Biometria utilizada no cálculo</h3>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {meta.filename}{meta.equipment ? ` · ${meta.equipment}` : ''}{meta.patientName ? ` · ${meta.patientName}` : ''}
+          </p>
+        </div>
+        <span className="text-slate-400 text-xs ml-4 shrink-0">
+          {open ? '▲ Recolher' : '▼ Ver biometria completa'}
+        </span>
+      </button>
+
+      {open && hasFile && (
+        <div className="border-t border-slate-200">
+          <div className="px-6 py-2.5 flex items-center justify-between gap-3 bg-slate-800">
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Exame original</span>
+            <a
+              href={fileDataUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-teal-400 hover:underline"
+            >
+              ↗ Nova aba
+            </a>
+          </div>
+          <div className="bg-slate-100" style={{ height: '60vh' }}>
+            {isPDF && (
+              <embed
+                src={`${fileDataUrl}#zoom=90&pagemode=none`}
+                type="application/pdf"
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+              />
+            )}
+            {isImage && (
+              <div className="w-full h-full overflow-y-auto flex items-start justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={fileDataUrl!} className="w-full h-auto object-contain" alt="Biometria original" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {open && (
+        <div className="border-t border-slate-200 px-6 py-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-400 border-b border-slate-100">
+                <th className="text-left py-1.5 font-semibold">Parâmetro</th>
+                <th className="text-center py-1.5 font-semibold text-blue-700">OD</th>
+                <th className="text-center py-1.5 font-semibold text-indigo-700">OE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BIOMETRY_FIELD_ROWS.map((row) => (
+                <tr key={row.label} className="border-b border-slate-50 last:border-0">
+                  <td className="py-1.5 text-slate-500">{row.label}</td>
+                  <td className="py-1.5 text-center font-mono font-semibold text-slate-900">{row.render(biometry.OD)}</td>
+                  <td className="py-1.5 text-center font-mono font-semibold text-slate-900">{row.render(biometry.OE)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Tab status helper ──────────────────────────────────────────────────────────
 function calcTabStatus(calcId: string, results: CalculationResult[]): 'ok' | 'fail' | 'partial' {
   const relevant = results.filter((r) => r.calculatorId === calcId)
@@ -422,7 +523,7 @@ function calcTabStatus(calcId: string, results: CalculationResult[]): 'ok' | 'fa
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function ResultsPage() {
   const router = useRouter()
-  const { biometry, meta, calculationResults, selectedIOL } = useBiometryStore()
+  const { biometry, meta, calculationResults, selectedIOL, fileDataUrl } = useBiometryStore()
 
   // Group calc IDs in insertion order — all hooks before early returns
   const calcIds = useMemo(() => {
@@ -487,6 +588,9 @@ export default function ResultsPage() {
           </button>
         </div>
       </div>
+
+      {/* Biometria de origem */}
+      <BiometrySummaryCard biometry={biometry} meta={meta} fileDataUrl={fileDataUrl} />
 
       {/* Summary bar */}
       {hasResults && (
@@ -562,7 +666,7 @@ export default function ResultsPage() {
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all whitespace-nowrap shadow-sm ${
                       isActive
                         ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-[1.02]'
-                        : 'bg-white border-slate-200 text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50'
+                        : 'bg-slate-50 border-slate-300 text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50'
                     }`}
                   >
                     <span className={isActive ? 'text-white' : statusColor}>{statusIcon}</span>
